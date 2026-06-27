@@ -1,0 +1,44 @@
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# ── Virtual Environment ──
+venv/
+.venv/
+env/
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Logs ──
+*.log
+
+# ── OS ──
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# ── Project: Database (auto-generated) ──
+data/
+
+# ── Environment ──
+.env
+
+# ── Worktrees ──
+.worktrees/
+worktrees/
+
+# ── Frontend ──
+frontend/.vite/
+frontend/node_modules/
+frontend/dist/
+*.local
