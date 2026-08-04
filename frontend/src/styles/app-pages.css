@@ -1,0 +1,399 @@
+body .app-shell .page-content {
+  background:
+    radial-gradient(circle at top left, rgba(55, 125, 255, 0.08), transparent 26%),
+    linear-gradient(180deg, #061523 0%, #071829 100%);
+}
+
+body .workbench-page,
+body .app-results-page,
+body .knowledge-page {
+  color: #f8fbff;
+}
+
+body .workbench-page .workspace-card,
+body .workbench-page .surface-panel,
+body .workbench-page .step-item,
+body .workbench-page .detail-card,
+body .workbench-page .mini-panel,
+body .workbench-page .overview-card,
+body .workbench-page .warning-card,
+body .workbench-page .log-item,
+body .app-results-page .surface-panel,
+body .app-results-page .leaderboard-card,
+body .app-results-page .detail-panel,
+body .app-results-page .score-card,
+body .app-results-page .explain-card,
+body .app-results-page .breakdown-card,
+body .app-results-page .trace-card,
+body .knowledge-page .surface-panel,
+body .knowledge-page .assistant-section,
+body .knowledge-page .help-card,
+body .knowledge-page .hit-card,
+body .knowledge-page .doc-card,
+body .knowledge-page .empty-state {
+  border-radius: 8px;
+}
+
+body .workbench-page .workspace-card,
+body .workbench-page .surface-panel,
+body .app-results-page .surface-panel,
+body .knowledge-page .surface-panel,
+body .knowledge-page .assistant-section {
+  border-color: rgba(166, 204, 247, 0.12);
+  background: rgba(252, 253, 255, 0.98);
+  box-shadow: 0 14px 32px rgba(2, 10, 18, 0.12);
+}
+
+body .workbench-page .workspace-card.accent {
+  border-color: rgba(103, 213, 202, 0.24);
+  background: linear-gradient(135deg, rgba(24, 186, 169, 0.16), rgba(55, 125, 255, 0.12));
+}
+
+body .workbench-page .assistant-shell,
+body .app-results-page .hero-console,
+body .knowledge-page .hero-console {
+  border-radius: 8px;
+  border: 1px solid rgba(166, 204, 247, 0.14);
+  box-shadow: 0 16px 36px rgba(2, 10, 18, 0.18);
+}
+
+body .app-results-page .hero-console,
+body .knowledge-page .hero-console {
+  min-height: 220px;
+}
+
+body .app-results-page .hero-content,
+body .knowledge-page .hero-content {
+  min-height: 220px;
+}
+
+body .capability-page .surface-panel,
+body .app-results-page .detail-panel,
+body .app-results-page .leaderboard-card,
+body .app-results-page .score-card,
+body .app-results-page .explain-card,
+body .app-results-page .breakdown-card,
+body .app-results-page .trace-card,
+body .knowledge-page .help-card,
+body .knowledge-page .hit-card,
+body .knowledge-page .doc-card,
+body .workbench-page .assistant-shell,
+body .workbench-page .metric-card,
+body .workbench-page .stage-card,
+body .workbench-page .result-block,
+body .workbench-page .progress-block,
+body .workbench-page .log-item,
+body .workbench-page .empty-state {
+  background: #ffffff;
+}
+
+body .workbench-page .panel-heading h2,
+body .app-results-page .panel-heading h3,
+body .knowledge-page .panel-heading h3 {
+  letter-spacing: 0;
+}
+
+body .workbench-page .action-row .el-button,
+body .knowledge-page .search-form .el-button,
+body .app-results-page .primary-link,
+body .app-results-page .secondary-link,
+body .app-results-page .ghost-link {
+  border-radius: 8px;
+}
+
+body .workbench-page .step-item {
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+body .workbench-page .step-item:hover,
+body .app-results-page .leaderboard-card:hover,
+body .knowledge-page .hit-card:hover,
+body .knowledge-page .doc-card:hover {
+  transform: translateY(-1px);
+}
+
+body .workbench-page .step-icon,
+body .workbench-page .empty-log,
+body .app-results-page .summary-card,
+body .knowledge-page .stat-card {
+  border-radius: 8px;
+}
+
+body .workbench-page .readonly-box,
+body .workbench-page :is(.el-input__wrapper, .el-textarea__inner, .el-select__wrapper),
+body .knowledge-page :is(.el-input__wrapper, .el-select__wrapper, .el-input-number .el-input__wrapper) {
+  border-radius: 8px;
+}
+
+body .workbench-page .log-panel {
+  margin-bottom: 4px;
+}
+
+body .app-results-page .detail-panel,
+body .knowledge-page .help-card,
+body .knowledge-page .hit-card,
+body .knowledge-page .doc-card {
+  background: #f8fbff;
+}
+
+body .app-results-page .action-panel,
+body .knowledge-page .assistant-section {
+  margin-bottom: 4px;
+}
+
+@media (max-width: 1360px) {
+  body .workbench-page .workspace-grid {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1080px) {
+  body .workbench-page .workspace-strip,
+  body .app-results-page .hero-summary,
+  body .knowledge-page .hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  body .workbench-page .workspace-strip,
+  body .app-results-page .hero-summary,
+  body .knowledge-page .hero-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Quantum materials platform unification */
+body .app-shell {
+  background:
+    radial-gradient(circle at 16% 4%, rgba(30, 140, 255, 0.16), transparent 28%),
+    radial-gradient(circle at 86% 12%, rgba(242, 195, 91, 0.09), transparent 24%),
+    linear-gradient(180deg, #040a14 0%, #06101a 56%, #040a14 100%);
+}
+
+body .app-shell .page-content {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.024) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    radial-gradient(circle at top left, rgba(30, 140, 255, 0.12), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(242, 195, 91, 0.06), transparent 24%),
+    linear-gradient(180deg, #040a14 0%, #06101a 100%);
+  background-size: 72px 72px, 72px 72px, auto, auto, auto;
+}
+
+body .workbench-page,
+body .app-results-page,
+body .knowledge-page,
+body .capability-page,
+body .history-page,
+body .partition-page,
+body .mapping-page {
+  color: var(--lz-text);
+}
+
+body .app-shell .sidebar {
+  border-right-color: rgba(120, 200, 255, 0.14);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(52, 214, 255, 0.13), transparent 34%),
+    linear-gradient(180deg, rgba(6, 16, 26, 0.96), rgba(4, 10, 20, 0.98));
+}
+
+body .app-shell .top-bar {
+  border-bottom-color: rgba(120, 200, 255, 0.12);
+  background: rgba(4, 10, 20, 0.76);
+}
+
+body .workbench-page :is(.workbench-hero, .surface-panel, .metric-card, .stage-card, .progress-block, .result-block, .warning-card, .log-item, .empty-state, .assistant-shell),
+body .app-results-page :is(.hero-console, .surface-panel, .summary-card, .leaderboard-card, .detail-panel, .score-card, .explain-card, .breakdown-card, .trace-card),
+body .knowledge-page :is(.hero-console, .surface-panel, .stat-card, .help-card, .hit-card, .doc-card, .empty-state, .assistant-section),
+body .capability-page :is(.hero-console, .surface-panel, .stat-box, .tab-content),
+body .history-page :is(.hero-console, .surface-panel, .stat-card, .timeline-card, .metric-box, .empty-state),
+body .partition-page :is(.panel-card, .stat-item, .stat-card, .upload-area, .panel-placeholder),
+body .mapping-page :is(.guide-banner, .panel-card, .cost-item, .topo-preview, .panel-placeholder) {
+  border: 1px solid rgba(120, 200, 255, 0.14);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 76% 12%, rgba(242, 195, 91, 0.08), transparent 28%),
+    radial-gradient(circle at 72% 0%, rgba(30, 140, 255, 0.12), transparent 36%),
+    linear-gradient(135deg, rgba(8, 20, 36, 0.82), rgba(6, 16, 26, 0.68));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+body .workbench-page :is(.workbench-hero, .surface-panel, .metric-card, .stage-card, .progress-block, .result-block, .log-item, .empty-state, .assistant-shell) *,
+body .app-results-page :is(.surface-panel, .leaderboard-card, .detail-panel, .score-card, .explain-card, .breakdown-card, .trace-card) *,
+body .knowledge-page :is(.surface-panel, .stat-card, .help-card, .hit-card, .doc-card, .empty-state, .assistant-section) *,
+body .capability-page :is(.surface-panel, .stat-box, .tab-content) *,
+body .history-page :is(.surface-panel, .stat-card, .timeline-card, .metric-box, .empty-state) *,
+body .partition-page :is(.panel-card, .stat-item, .stat-card, .upload-area, .panel-placeholder) *,
+body .mapping-page :is(.guide-banner, .panel-card, .cost-item, .topo-preview, .panel-placeholder) * {
+  border-color: rgba(120, 200, 255, 0.14);
+}
+
+body .workbench-page :is(h2, h3, strong, .step-main strong, .log-item strong),
+body .app-results-page :is(h2, h3, strong, .leaderboard-top strong),
+body .knowledge-page :is(h2, h3, strong),
+body .capability-page :is(h2, h3, strong),
+body .history-page :is(h2, h3, strong),
+body .partition-page :is(h2, h3, strong, .panel-title, .stat-value, .stat-card-value),
+body .mapping-page :is(h2, h3, strong, .panel-title, .cost-value) {
+  color: var(--lz-text);
+}
+
+body .workbench-page :is(p, small, span, .field span, .stage-description, .step-main small, .log-item p),
+body .app-results-page :is(p, small, span),
+body .knowledge-page :is(p, small, span),
+body .capability-page :is(p, small, span),
+body .history-page :is(p, small, span),
+body .partition-page :is(p, small, span, label, .stat-label, .stat-card-label, .placeholder-text),
+body .mapping-page :is(p, small, span, label, .field-label, .cost-label, .placeholder-text, .hint-text) {
+  color: var(--lz-muted);
+}
+
+body .workbench-page :is(.panel-kicker, .panel-kicker-dark),
+body .app-results-page :is(.panel-kicker, .panel-kicker-dark, .detail-kicker),
+body .knowledge-page :is(.panel-kicker, .panel-kicker-dark),
+body .capability-page :is(.panel-kicker, .panel-kicker-dark),
+body .history-page :is(.panel-kicker, .panel-kicker-dark),
+body .partition-page :is(.panel-icon, .placeholder-icon),
+body .mapping-page :is(.panel-icon, .guide-icon, .placeholder-icon) {
+  color: var(--lz-cyan);
+}
+
+body .workbench-page :is(.metric-card.accent, .stage-card:hover, .step-item.active),
+body .app-results-page :is(.summary-card.accent, .leaderboard-card.active),
+body .history-page :is(.metric-box.accent),
+body .partition-page :is(.stat-item.highlight),
+body .mapping-page :is(.adj-cell.active) {
+  border-color: rgba(242, 195, 91, 0.36);
+  background:
+    radial-gradient(circle at 80% 12%, rgba(242, 195, 91, 0.16), transparent 36%),
+    linear-gradient(135deg, rgba(30, 140, 255, 0.12), rgba(8, 20, 36, 0.76));
+}
+
+body .workbench-page :is(.step-item, .leaderboard-card, .hit-card, .doc-card, .timeline-card, .panel-card),
+body .app-results-page :is(.leaderboard-card, .score-card, .explain-card, .breakdown-card, .trace-card),
+body .knowledge-page :is(.help-card, .hit-card, .doc-card),
+body .history-page :is(.timeline-card),
+body .partition-page :is(.panel-card, .stat-card),
+body .mapping-page :is(.panel-card, .cost-item) {
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+body .workbench-page :is(.step-item, .metric-card, .stage-card, .log-item):hover,
+body .app-results-page :is(.leaderboard-card, .score-card, .explain-card, .breakdown-card, .trace-card):hover,
+body .knowledge-page :is(.help-card, .hit-card, .doc-card):hover,
+body .history-page :is(.timeline-card):hover,
+body .partition-page :is(.panel-card, .stat-card):hover,
+body .mapping-page :is(.panel-card, .cost-item):hover {
+  border-color: rgba(52, 214, 255, 0.32);
+  box-shadow: 0 22px 68px rgba(0, 0, 0, 0.28), 0 0 24px rgba(30, 140, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+body .workbench-page :is(.el-input__wrapper, .el-textarea__inner, .el-select__wrapper, .el-segmented),
+body .knowledge-page :is(.el-input__wrapper, .el-select__wrapper, .el-input-number .el-input__wrapper),
+body .capability-page :is(.el-input__wrapper, .el-textarea__inner, .el-select__wrapper),
+body .partition-page :is(.el-input__wrapper, .el-textarea__inner, .el-select__wrapper, .el-input-number .el-input__wrapper),
+body .mapping-page :is(.el-input__wrapper, .el-textarea__inner, .el-select__wrapper, .el-input-number .el-input__wrapper) {
+  border: 1px solid rgba(120, 200, 255, 0.14);
+  background: rgba(4, 10, 20, 0.42);
+  box-shadow: none;
+}
+
+body .workbench-page :is(.el-input__inner, .el-textarea__inner),
+body .knowledge-page :is(.el-input__inner),
+body .capability-page :is(.el-input__inner, .el-textarea__inner),
+body .partition-page :is(.el-input__inner, .el-textarea__inner),
+body .mapping-page :is(.el-input__inner, .el-textarea__inner) {
+  color: var(--lz-text);
+}
+
+body .workbench-page :is(.el-input__inner::placeholder, .el-textarea__inner::placeholder),
+body .knowledge-page :is(.el-input__inner::placeholder),
+body .capability-page :is(.el-input__inner::placeholder, .el-textarea__inner::placeholder),
+body .partition-page :is(.el-input__inner::placeholder, .el-textarea__inner::placeholder),
+body .mapping-page :is(.el-input__inner::placeholder, .el-textarea__inner::placeholder) {
+  color: rgba(147, 168, 189, 0.62);
+}
+
+body .workbench-page :is(.el-button, .inline-link, .primary-link, .secondary-link, .ghost-link),
+body .app-results-page :is(.el-button, .primary-link, .secondary-link, .ghost-link),
+body .knowledge-page :is(.el-button),
+body .capability-page :is(.el-button),
+body .history-page :is(.el-button, .refresh-btn),
+body .partition-page :is(.el-button, .action-btn),
+body .mapping-page :is(.el-button, .action-btn) {
+  border-radius: 8px;
+}
+
+body .workbench-page :is(.primary-link, .inline-link),
+body .app-results-page :is(.primary-link, .ghost-link, .secondary-link),
+body .knowledge-page a,
+body .history-page a,
+body .partition-page a,
+body .mapping-page a {
+  color: var(--lz-cyan);
+}
+
+body .app-results-page .hero-console,
+body .knowledge-page .hero-console,
+body .capability-page .hero-console,
+body .history-page .hero-console {
+  min-height: 246px;
+  border: 1px solid rgba(120, 200, 255, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.28);
+}
+
+body .app-results-page .hero-overlay,
+body .knowledge-page .hero-overlay,
+body .capability-page .hero-overlay,
+body .history-page .hero-overlay {
+  background:
+    linear-gradient(90deg, rgba(4, 10, 20, 0.94) 0%, rgba(4, 10, 20, 0.7) 48%, rgba(4, 10, 20, 0.18) 100%),
+    radial-gradient(circle at 72% 36%, rgba(30, 140, 255, 0.18), transparent 38%);
+}
+
+body .workbench-page .workbench-hero {
+  background:
+    radial-gradient(circle at 74% 42%, rgba(242, 195, 91, 0.12), transparent 28%),
+    radial-gradient(circle at 82% 58%, rgba(30, 140, 255, 0.2), transparent 34%),
+    linear-gradient(115deg, rgba(6, 21, 35, 0.94), rgba(12, 45, 62, 0.88));
+}
+
+body .app-results-page .hero-image,
+body .knowledge-page .hero-image,
+body .capability-page .hero-image,
+body .history-page .hero-image {
+  object-position: 68% 46%;
+  filter: saturate(1.1) contrast(1.06);
+}
+
+body .partition-page :is(.graph-container, .chart-container),
+body .mapping-page :is(.graph-container, .chart-container, .preview-graph) {
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 62% 42%, rgba(30, 140, 255, 0.13), transparent 32%),
+    linear-gradient(90deg, rgba(52, 214, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(52, 214, 255, 0.035) 1px, transparent 1px),
+    rgba(4, 10, 20, 0.5);
+  background-size: 44px 44px;
+}
+
+body .partition-page :is(.el-table, .partition-table),
+body .mapping-page :is(.el-table, .mapping-table) {
+  --el-table-bg-color: rgba(8, 20, 36, 0.6);
+  --el-table-tr-bg-color: rgba(8, 20, 36, 0.42);
+  --el-table-header-bg-color: rgba(4, 10, 20, 0.82);
+  --el-table-row-hover-bg-color: rgba(30, 140, 255, 0.1);
+  --el-table-text-color: var(--lz-text);
+  --el-table-header-text-color: var(--lz-muted);
+  --el-table-border-color: rgba(120, 200, 255, 0.12);
+}
+
+@media (max-width: 760px) {
+  body .app-shell .page-content {
+    padding: 16px;
+  }
+}

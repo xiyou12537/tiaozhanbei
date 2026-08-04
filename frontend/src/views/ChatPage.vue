@@ -1,38 +1,34 @@
 <template>
   <div class="chat-page">
-    <div class="chat-header">
-      <div class="chat-header-left">
-        <div class="header-icon">
-          <svg viewBox="0 0 40 40" fill="none" width="32" height="32">
-            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
-            <circle cx="20" cy="20" r="8" stroke="currentColor" stroke-width="2"/>
-            <circle cx="20" cy="20" r="2" fill="currentColor"/>
-          </svg>
+    <section class="hero-console">
+      <img class="hero-image" :src="heroImage" alt="AI 助手主视觉" />
+      <div class="hero-overlay"></div>
+
+      <div class="hero-content">
+        <div class="hero-copy">
+          <span class="panel-kicker">Research Assistant</span>
+          <h2>AI 助手</h2>
         </div>
-        <div>
-          <h3>量子 AI 助手</h3>
-          <span class="header-sub">基于大语言模型 · 量子计算领域问答</span>
+
+        <div class="hero-actions">
+          <el-button text :disabled="!hasMessages" @click="handleClear">
+            <el-icon :size="16"><Delete /></el-icon>
+            清空对话
+          </el-button>
         </div>
       </div>
-      <div class="chat-header-right">
-        <el-button text size="small" @click="handleClear" :disabled="!hasMessages">
-          <el-icon :size="16"><Delete /></el-icon>
-          清空对话
-        </el-button>
-      </div>
-    </div>
+    </section>
 
-    <ChatMessages
-      :messages="messages"
-      :streaming="streaming"
-      :streamingText="streamingText"
-      @suggest="sendMessage"
-    />
+    <section class="chat-surface">
+      <ChatMessages
+        :messages="messages"
+        :streaming="streaming"
+        :streamingText="streamingText"
+        @suggest="sendMessage"
+      />
 
-    <ChatInput
-      :disabled="streaming"
-      @send="sendMessage"
-    />
+      <ChatInput :disabled="streaming" @send="sendMessage" />
+    </section>
   </div>
 </template>
 
@@ -42,6 +38,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ChatMessages from '../components/ChatMessages.vue'
 import ChatInput from '../components/ChatInput.vue'
 import { useChat } from '../composables/useChat'
+import heroImage from '../assets/chemistry-hero.png'
 
 const { messages, streaming, streamingText, hasMessages, loadHistory, sendMessage, clearHistory } = useChat()
 
@@ -58,7 +55,11 @@ async function handleClear() {
     })
     clearHistory()
     ElMessage.success('对话历史已清空')
-  } catch {}
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      console.warn('clear chat history error:', error)
+    }
+  }
 }
 </script>
 
@@ -66,40 +67,100 @@ async function handleClear() {
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 48px - 40px);  /* topbar + padding */
-  background: #0f1923;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.06);
+  gap: 18px;
+}
+
+.hero-console {
+  position: relative;
   overflow: hidden;
+  border-radius: 18px;
+  background: #081a2c;
+  min-height: 240px;
 }
-.chat-header {
+
+.hero-image,
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-overlay {
+  background:
+    linear-gradient(90deg, rgba(4, 13, 24, 0.92) 0%, rgba(4, 13, 24, 0.68) 45%, rgba(4, 13, 24, 0.42) 100%),
+    linear-gradient(180deg, rgba(8, 18, 32, 0.16) 0%, rgba(8, 18, 32, 0.58) 100%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  min-height: 240px;
+  padding: 24px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  background: rgba(0,0,0,0.1);
-  flex-shrink: 0;
+  gap: 18px;
 }
-.chat-header-left {
+
+.panel-kicker {
+  color: #67d5ca;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.hero-copy h2 {
+  margin-top: 6px;
+  font-size: 1.18rem;
+  color: #f8fbff;
+}
+
+.hero-copy p {
+  margin-top: 10px;
+  max-width: 760px;
+  color: rgba(228, 236, 246, 0.84);
+  font-size: 0.84rem;
+  line-height: 1.75;
+}
+
+.hero-actions :deep(.el-button) {
+  color: #f8fbff;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(166, 204, 247, 0.18);
+  padding: 0 14px;
+  height: 38px;
+}
+
+.chat-surface {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  height: calc(100vh - 48px - 40px - 258px);
+  min-height: 520px;
+  background: #0b1727;
+  border-radius: 18px;
+  border: 1px solid rgba(166, 204, 247, 0.14);
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
-.header-icon { color: #36cfc9; }
-.chat-header h3 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #e8eaed;
+
+@media (max-width: 720px) {
+  .hero-content {
+    padding: 16px;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .chat-surface {
+    height: calc(100vh - 48px - 40px - 220px);
+    min-height: 460px;
+  }
 }
-.header-sub {
-  font-size: 0.7rem;
-  color: #4a5d70;
-}
-.chat-header-right {
-  display: flex;
-  gap: 8px;
-}
-.chat-header-right :deep(.el-button) { color: #5a6d80; }
-.chat-header-right :deep(.el-button:hover) { color: #ff4d4f; }
 </style>

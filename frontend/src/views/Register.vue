@@ -2,31 +2,31 @@
   <div class="auth-container">
     <div class="auth-card">
       <h1>创建账号</h1>
-      <p class="subtitle">注册后即可使用量子线路划分优化系统</p>
-      <el-form :model="form" :rules="rules" ref="formRef" size="large">
+      <p class="subtitle">注册后即可使用平台工作台、历史归档与 AI 助手</p>
+      <el-form ref="formRef" :model="form" :rules="rules" size="large">
         <el-form-item prop="username">
           <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码（至少6位）" prefix-icon="Lock" show-password />
+          <el-input v-model="form.password" type="password" placeholder="密码（至少 6 位）" prefix-icon="Lock" show-password />
         </el-form-item>
         <el-form-item prop="confirm">
           <el-input v-model="form.confirm" type="password" placeholder="确认密码" prefix-icon="Lock" show-password />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleRegister" :loading="loading" style="width:100%">
-            注 册
+          <el-button type="primary" :loading="loading" style="width: 100%" @click="handleRegister">
+            注册
           </el-button>
         </el-form-item>
       </el-form>
       <p class="footer-text">已有账号？<router-link to="/login">返回登录</router-link></p>
-      <p class="footer-text"><router-link to="/">← 返回首页</router-link></p>
+      <p class="footer-text"><router-link to="/">返回首页</router-link></p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { register } from '../api'
@@ -40,9 +40,10 @@ const validateConfirm = (rule, value, callback) => {
   if (value !== form.password) callback(new Error('两次输入的密码不一致'))
   else callback()
 }
+
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, min: 6, message: '密码至少6位', trigger: 'blur' }],
+  password: [{ required: true, min: 6, message: '密码至少 6 位', trigger: 'blur' }],
   confirm: [{ required: true, validator: validateConfirm, trigger: 'blur' }],
 }
 
@@ -56,8 +57,8 @@ async function handleRegister() {
     localStorage.setItem('user', JSON.stringify({ id: data.user_id, username: data.username }))
     ElMessage.success('注册成功')
     router.push('/')
-  } catch (e) {
-    ElMessage.error(e.response?.data?.detail || '注册失败')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '注册失败')
   } finally {
     loading.value = false
   }

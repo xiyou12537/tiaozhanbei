@@ -1,19 +1,15 @@
-"""
-JWT 认证中间件 —— 从请求头中提取 Bearer Token，解码后注入当前用户信息。
+from __future__ import annotations
 
-使用方式：
-    在需要登录的路由中添加依赖：user = Depends(get_current_user)
-"""
+import datetime
 
 import jwt
-import datetime
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+
 from .database import get_db
 from .models_db import User
 
-# JWT 密钥（生产环境应从环境变量读取）
 SECRET_KEY = "quantum-partitioning-secret-key-2024"
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
@@ -22,7 +18,7 @@ security = HTTPBearer()
 
 
 def create_token(user_id: int, username: str) -> str:
-    """为用户生成 JWT Token。"""
+    """Generate a JWT token for the authenticated user."""
     payload = {
         "user_id": user_id,
         "username": username,
@@ -33,25 +29,22 @@ def create_token(user_id: int, username: str) -> str:
 
 
 def decode_token(token: str) -> dict:
-    """解码 JWT Token，返回 payload。Token 无效或过期时抛出异常。"""
+    """Decode and validate a JWT token."""
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期，请重新登录")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的认证令牌")
+    except jwt.ExpiredSignatureError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期，请重新登录。") from exc
+    except jwt.InvalidTokenError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的认证令牌。") from exc
 
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
-    """从请求头 JWT Token 中获取当前登录用户。
-
-    在所有需要登录的 API 路由中作为依赖注入使用。
-    """
+    """Resolve the authenticated user from a Bearer token."""
     payload = decode_token(credentials.credentials)
     user = db.query(User).filter(User.id == payload["user_id"]).first()
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在。")
     return user

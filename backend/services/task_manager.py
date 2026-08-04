@@ -26,7 +26,11 @@ class TaskManager:
         self._progress: Dict[str, Dict[str, Any]] = {}
 
     def submit(
-        self, fn: Callable[..., Any], *args, **kwargs
+        self,
+        fn: Callable[..., Any],
+        *args,
+        task_owner_user_id: int | None = None,
+        **kwargs,
     ) -> str:
         """Submit a function for background execution.
 
@@ -40,6 +44,7 @@ class TaskManager:
             "message": "Waiting to start...",
             "result": None,
             "error": None,
+            "owner_user_id": task_owner_user_id,
         }
 
         def _wrapper() -> None:
@@ -66,8 +71,70 @@ class TaskManager:
         self._executor.submit(_wrapper)
         return task_id
 
-    def get_status(self, task_id: str) -> Optional[Dict[str, Any]]:
-        return self._progress.get(task_id)
+    def submit_cancellable(
+        self,
+        fn: Callable[..., Any],
+        *args,
+        task_owner_user_id: int | None = None,
+        **kwargs,
+    ) -> str:
+        """Run a cooperative task that can terminate an external child process safely."""
+        task_id = str(uuid.uuid4())[:8]
+        self._progress[task_id] = {
+            "status": "queued",
+            "progress": 0.0,
+            "message": "Waiting to start...",
+            "result": None,
+            "error": None,
+            "cancel_requested": False,
+            "owner_user_id": task_owner_user_id,
+        }
+
+        def is_cancel_requested() -> bool:
+            return bool(self._progress.get(task_id, {}).get("cancel_requested"))
+
+        def _wrapper() -> None:
+            if is_cancel_requested():
+                self._progress[task_id].update(status="cancelled", progress=100.0, message="Cancelled before execution.")
+                return
+            try:
+                self._progress[task_id].update(status="running", progress=10.0, message="Computing...")
+                result = fn(is_cancel_requested, *args, **kwargs)
+                if is_cancel_requested():
+                    self._progress[task_id].update(status="cancelled", progress=100.0, message="Cancelled.", result=result)
+                    return
+                self._progress[task_id].update(status="completed", progress=100.0, message="Done.", result=result)
+                cache.set(f"result:{task_id}", result, ttl=1800)
+            except Exception as exc:
+                if is_cancel_requested():
+                    self._progress[task_id].update(status="cancelled", progress=100.0, message="Cancelled.")
+                    return
+                self._progress[task_id].update(status="failed", message=str(exc), error=traceback.format_exc())
+
+        self._executor.submit(_wrapper)
+        return task_id
+
+    def cancel(self, task_id: str) -> bool:
+        """Request cooperative cancellation; running subprocesses receive the request through their checker."""
+        task = self._progress.get(task_id)
+        if task is None or task["status"] in {"completed", "failed", "cancelled"}:
+            return False
+        task["cancel_requested"] = True
+        task["message"] = "Cancellation requested."
+        return True
+
+    def get_status(
+        self,
+        task_id: str,
+        owner_user_id: int | None = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Return a task only when its persisted in-memory owner matches."""
+        task = self._progress.get(task_id)
+        if task is None:
+            return None
+        if owner_user_id is not None and task.get("owner_user_id") != owner_user_id:
+            return None
+        return task
 
     def get_result(self, task_id: str) -> Optional[Any]:
         """Retrieve completed task result from cache."""

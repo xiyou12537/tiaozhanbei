@@ -211,9 +211,9 @@ class GreedyPartitioner:
                 break
 
             # Pick the unassigned qubit with most gates as next seed
-            next_seed = max(
+            next_seed = min(
                 unassigned,
-                key=lambda q: len(self._qubit_gate_map.get(q, [])),
+                key=lambda q: (-len(self._qubit_gate_map.get(q, [])), q),
             )
             part = [next_seed]
             unassigned.discard(next_seed)
@@ -224,9 +224,12 @@ class GreedyPartitioner:
         if len(partitions) < self._num_partitions:
             partitions.append(list(unassigned))
         else:
-            for q in unassigned:
-                smallest = min(partitions, key=len)
-                smallest.append(q)
+            for q in sorted(unassigned):
+                smallest_index = min(
+                    range(len(partitions)),
+                    key=lambda index: (len(partitions[index]), index),
+                )
+                partitions[smallest_index].append(q)
 
         return partitions
 
@@ -243,7 +246,7 @@ class GreedyPartitioner:
             best_q: Optional[int] = None
             best_score = float("-inf")
 
-            for q in unassigned:
+            for q in sorted(unassigned):
                 inter_score = sum(
                     self._interaction.get(q, {}).get(other, 0)
                     for other in partition
@@ -413,4 +416,138 @@ def run_partitioning_pipeline(
             beta=beta,
         )
         scheme = partitioner.run()
-        return scheme, b1, b2
+    return scheme, b1, b2
+
+
+def run_deterministic_partition_search_v1(
+    gates: List[list],
+    qubits: List[int],
+    *,
+    num_partitions: int = 2,
+    max_imbalance: int = 1,
+    b1_list: Optional[List[float]] = None,
+    b2_list: Optional[List[float]] = None,
+    alpha: float = 3.0,
+    beta: float = 1.0,
+    num_starts: int = 15,
+) -> dict:
+    """Run the protocol-frozen deterministic multi-start partition search.
+
+    This entry point deliberately does not use the legacy gate-commutation
+    optimizer while scoring candidates.  It exposes every searched candidate
+    and applies the V1 lexicographic tie-break independently of set or graph
+    iteration order.
+    """
+    if num_partitions != 2:
+        raise ValueError("V1 requires exactly two partitions.")
+    ordered_qubits = sorted(set(int(qubit) for qubit in qubits))
+    if ordered_qubits != list(range(len(ordered_qubits))):
+        raise ValueError("V1 logical qubits must be contiguous and zero-based.")
+    if len(ordered_qubits) < num_partitions:
+        raise ValueError("There are fewer qubits than requested partitions.")
+
+    b1_values = list(b1_list or range(1, 21))
+    b2_values = list(b2_list or range(1, 21))
+    qubit_gate_map = compute_qubit_gate_map(gates)
+    activity_order = sorted(
+        ordered_qubits,
+        key=lambda qubit: (-len(qubit_gate_map.get(qubit, [])), qubit),
+    )
+    seed_qubits = activity_order[: min(num_starts, len(activity_order))]
+    candidates: list[dict] = []
+
+    for b1 in b1_values:
+        for b2 in b2_values:
+            partitioner = GreedyPartitioner(
+                gates=gates,
+                qubits=ordered_qubits,
+                num_partitions=num_partitions,
+                max_imbalance=max_imbalance,
+                b1=float(b1),
+                b2=float(b2),
+                alpha=alpha,
+                beta=beta,
+                num_starts=num_starts,
+            )
+            # The legacy constructor adds ``max_imbalance`` to its expansion
+            # target, which produces a 3/1 split for an even four-qubit input.
+            # V1 treats imbalance as an acceptance bound, not as extra capacity;
+            # each greedy seed therefore expands only to the balanced ceiling.
+            partitioner._target_size = (
+                len(ordered_qubits) + num_partitions - 1
+            ) // num_partitions
+            for seed in seed_qubits:
+                partitions = partitioner._build_partitions_from_seed(seed)
+                if partitions is None:
+                    continue
+                normalized = [sorted(partition) for partition in partitions]
+                normalized.sort(key=lambda partition: (min(partition), partition))
+                flattened = [qubit for partition in normalized for qubit in partition]
+                if sorted(flattened) != ordered_qubits or len(set(flattened)) != len(flattened):
+                    continue
+                load_difference = max(map(len, normalized)) - min(map(len, normalized))
+                if load_difference > max_imbalance:
+                    continue
+                qubit_to_partition = {
+                    qubit: partition_id
+                    for partition_id, partition in enumerate(normalized)
+                    for qubit in partition
+                }
+                cross_partition_gate_count = sum(
+                    1
+                    for gate in gates
+                    if len(gate) >= 3
+                    and qubit_to_partition[int(gate[1])]
+                    != qubit_to_partition[int(gate[2])]
+                )
+                global_gate_count = cross_partition_gate_count
+                estimated_teleportations = cross_partition_gate_count
+                signature = tuple(tuple(partition) for partition in normalized)
+                selection_key = (
+                    estimated_teleportations,
+                    global_gate_count,
+                    cross_partition_gate_count,
+                    load_difference,
+                    signature,
+                    float(b1),
+                    float(b2),
+                    seed,
+                )
+                candidates.append(
+                    {
+                        "partitions": normalized,
+                        "seed_qubit": seed,
+                        "b1": float(b1),
+                        "b2": float(b2),
+                        "alpha": float(alpha),
+                        "beta": float(beta),
+                        "estimated_teleportations": estimated_teleportations,
+                        "global_gate_count": global_gate_count,
+                        "cross_partition_gate_count": cross_partition_gate_count,
+                        "load_difference": load_difference,
+                        "partition_signature": [list(partition) for partition in signature],
+                        "selection_key": selection_key,
+                    }
+                )
+
+    if not candidates:
+        raise ValueError("No valid V1 partition candidate was generated.")
+    selected = min(candidates, key=lambda candidate: candidate["selection_key"])
+    public_candidates = [
+        {
+            key: value
+            for key, value in candidate.items()
+            if key != "selection_key"
+        }
+        for candidate in candidates
+    ]
+    return {
+        "algorithm": "deterministic_greedy_multistart_grid_v1",
+        "candidate_count": len(candidates),
+        "selected": {
+            key: value
+            for key, value in selected.items()
+            if key != "selection_key"
+        },
+        "candidates": public_candidates,
+    }

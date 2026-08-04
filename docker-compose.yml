@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: liangzhi
+      POSTGRES_USER: liangzhi
+      POSTGRES_PASSWORD: liangzhi
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: liangzhi
+      RABBITMQ_DEFAULT_PASS: liangzhi
+
+volumes:
+  postgres_data:

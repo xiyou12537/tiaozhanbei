@@ -1,8 +1,6 @@
 <template>
   <div class="partition-page">
-    <!-- === 顶部：三列等宽操作区 === -->
     <div class="top-panels">
-      <!-- 列 1：上传电路 -->
       <div class="panel-card">
         <div class="panel-header">
           <span class="panel-icon"><el-icon><UploadFilled /></el-icon></span>
@@ -23,7 +21,7 @@
             </div>
           </el-upload>
           <div class="divider-text">
-            <span>或者直接粘贴内容</span>
+            <span>或直接粘贴内容</span>
           </div>
           <el-input
             v-model="qasmText"
@@ -45,15 +43,14 @@
         </div>
       </div>
 
-      <!-- 列 2：电路信息（始终渲染） -->
       <div class="panel-card">
         <div class="panel-header">
           <span class="panel-icon"><el-icon><InfoFilled /></el-icon></span>
           <span class="panel-title">电路信息</span>
           <el-tag v-if="shared.circuit" type="success" size="small" effect="light">已解析</el-tag>
-          <el-tag v-else size="small" effect="light" style="opacity:0.5">等待上传</el-tag>
+          <el-tag v-else size="small" effect="light" style="opacity: 0.5">等待上传</el-tag>
         </div>
-        <div class="panel-body" v-if="shared.circuit">
+        <div v-if="shared.circuit" class="panel-body">
           <div class="stat-grid">
             <div class="stat-item">
               <span class="stat-value">{{ shared.circuit.num_qubits }}</span>
@@ -81,15 +78,16 @@
             </el-descriptions-item>
           </el-descriptions>
         </div>
-        <div class="panel-body panel-placeholder" v-else>
+        <div v-else class="panel-body panel-placeholder">
           <div class="placeholder-icon">
             <el-icon :size="36"><Document /></el-icon>
           </div>
-          <p class="placeholder-text">上传电路文件或粘贴 QASM 内容后，<br>解析结果将在此显示</p>
+          <p class="placeholder-text">
+            上传电路文件或粘贴 QASM 内容后，<br>解析结果将在此显示
+          </p>
         </div>
       </div>
 
-      <!-- 列 3：分区参数（始终渲染） -->
       <div class="panel-card">
         <div class="panel-header">
           <span class="panel-icon"><el-icon><Setting /></el-icon></span>
@@ -99,19 +97,33 @@
           <el-form :model="params" label-position="top" size="small" class="param-form">
             <div class="param-row">
               <el-form-item label="分区数 k">
-                <el-input-number v-model="params.num_partitions" :min="1" :max="20" size="small" controls-position="right" style="width:100%" />
+                <el-input-number
+                  v-model="params.num_partitions"
+                  :min="1"
+                  :max="20"
+                  size="small"
+                  controls-position="right"
+                  style="width: 100%"
+                />
               </el-form-item>
               <el-form-item label="最大不均衡度">
-                <el-input-number v-model="params.max_imbalance" :min="0" :max="20" size="small" controls-position="right" style="width:100%" />
+                <el-input-number
+                  v-model="params.max_imbalance"
+                  :min="0"
+                  :max="20"
+                  size="small"
+                  controls-position="right"
+                  style="width: 100%"
+                />
               </el-form-item>
             </div>
             <div class="param-row">
-              <el-form-item label="b1 (权重1)">
+              <el-form-item label="b1 (权重 1)">
                 <el-slider v-model="params.b1" :min="1" :max="30" :step="0.5" show-input :show-input-controls="false" />
               </el-form-item>
             </div>
             <div class="param-row">
-              <el-form-item label="b2 (权重2)">
+              <el-form-item label="b2 (权重 2)">
                 <el-slider v-model="params.b2" :min="1" :max="30" :step="0.5" show-input :show-input-controls="false" />
               </el-form-item>
             </div>
@@ -121,7 +133,7 @@
               </el-form-item>
             </div>
             <div class="param-row">
-              <el-form-item label="beta (正则化)">
+              <el-form-item label="beta (正则项)">
                 <el-slider v-model="params.beta" :min="0.5" :max="10" :step="0.5" show-input :show-input-controls="false" />
               </el-form-item>
             </div>
@@ -142,7 +154,6 @@
             </el-button>
           </el-form>
 
-          <!-- 进度条 -->
           <div v-if="loading" class="progress-area">
             <el-progress
               :percentage="progress"
@@ -155,16 +166,14 @@
       </div>
     </div>
 
-    <!-- === 底部：结果区（始终渲染） === -->
     <div class="results-section">
-      <!-- 结果数据卡 -->
       <div class="panel-card result-data">
         <div class="panel-header">
           <span class="panel-icon"><el-icon><DataAnalysis /></el-icon></span>
           <span class="panel-title">分区结果</span>
           <el-tag v-if="shared.partitionResult" type="success" size="small" effect="light">已完成</el-tag>
         </div>
-        <div class="panel-body" v-if="shared.partitionResult">
+        <div v-if="shared.partitionResult" class="panel-body">
           <div class="stat-row">
             <div class="stat-card">
               <span class="stat-card-value">{{ shared.partitionResult.teleportations }}</span>
@@ -172,7 +181,7 @@
             </div>
             <div class="stat-card">
               <span class="stat-card-value">{{ shared.partitionResult.global_gates }}</span>
-              <span class="stat-card-label">全局门</span>
+              <span class="stat-card-label">全局门数</span>
             </div>
             <div class="stat-card">
               <span class="stat-card-value">{{ shared.partitionResult.optimized_gate_count }}</span>
@@ -187,7 +196,7 @@
             <el-table-column label="分区" width="60">
               <template #default="{ row }">P{{ row.index + 1 }}</template>
             </el-table-column>
-            <el-table-column prop="size" label="量子比特" width="80">
+            <el-table-column prop="size" label="量子比特数" width="100">
               <template #default="{ row }">
                 <el-tag size="small">{{ row.size }}</el-tag>
               </template>
@@ -207,27 +216,26 @@
             </el-button>
           </div>
         </div>
-        <div class="panel-body panel-placeholder" v-else>
+        <div v-else class="panel-body panel-placeholder">
           <div class="placeholder-icon">
             <el-icon :size="36"><PieChart /></el-icon>
           </div>
           <p class="placeholder-text">
-            {{ shared.circuit ? '配置参数后点击"开始分区计算"' : '请先上传并解析电路文件' }}
+            {{ shared.circuit ? '配置参数后点击“开始分区计算”' : '请先上传并解析电路文件' }}
           </p>
         </div>
       </div>
 
-      <!-- 图可视化卡 -->
       <div class="panel-card result-graph">
         <div class="panel-header">
           <span class="panel-icon"><el-icon><Share /></el-icon></span>
           <span class="panel-title">分区交互图</span>
           <span class="panel-hint">边标签 = 全局门数量</span>
         </div>
-        <div class="panel-body graph-body" v-if="shared.partitionResult">
+        <div v-if="shared.partitionResult" class="panel-body graph-body">
           <div ref="graphContainer" class="graph-container"></div>
         </div>
-        <div class="panel-body panel-placeholder" v-else>
+        <div v-else class="panel-body panel-placeholder">
           <div class="placeholder-icon">
             <el-icon :size="36"><Share /></el-icon>
           </div>
@@ -241,8 +249,6 @@
 <script setup>
 import { ref, reactive, inject, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Network } from 'vis-network'
-import { DataSet } from 'vis-data'
 import { getReportDownloadUrl, getPartitionGraphPngUrl } from '../api'
 import * as api from '../api'
 
@@ -256,6 +262,8 @@ const graphContainer = ref(null)
 let network = null
 let pollTimer = null
 let isMounted = true
+let visNetworkModule = null
+let visDataModule = null
 
 const params = reactive({
   num_partitions: 2,
@@ -267,11 +275,24 @@ const params = reactive({
   search: false,
 })
 
+async function loadVisModules() {
+  if (!visNetworkModule) {
+    visNetworkModule = await import('vis-network')
+  }
+  if (!visDataModule) {
+    visDataModule = await import('vis-data')
+  }
+  return {
+    Network: visNetworkModule.Network,
+    DataSet: visDataModule.DataSet,
+  }
+}
+
 function handleFile(file) {
   const reader = new FileReader()
-  reader.onload = e => {
-    qasmText.value = e.target.result
-    handleUpload()
+  reader.onload = event => {
+    qasmText.value = typeof event.target?.result === 'string' ? event.target.result : ''
+    void handleUpload()
   }
   reader.readAsText(file.raw)
 }
@@ -297,6 +318,7 @@ async function handleUpload() {
     aggregating: 'pending',
     completed: 'pending',
   }
+
   try {
     const { data } = await api.uploadCircuit(qasmText.value.trim())
     shared.circuit = data
@@ -311,10 +333,10 @@ async function handleUpload() {
       completed: 'pending',
     }
     ElMessage.success('电路解析成功')
-  } catch (e) {
+  } catch (error) {
     shared.workflowStatus = 'failed'
-    shared.lastError = e.response?.data?.detail || e.message
-    ElMessage.error('解析失败：' + (e.response?.data?.detail || e.message))
+    shared.lastError = error.response?.data?.detail || error.message
+    ElMessage.error(`解析失败：${error.response?.data?.detail || error.message}`)
   } finally {
     uploading.value = false
   }
@@ -325,6 +347,7 @@ async function handleRun() {
   loading.value = true
   progress.value = 0
   statusMsg.value = '提交任务...'
+  shared.partitionResult = null
   shared.mapping = null
   shared.targetEdges = []
   shared.topoComparisons = null
@@ -339,23 +362,26 @@ async function handleRun() {
     aggregating: 'pending',
     completed: 'pending',
   }
+
   try {
     const { data } = await api.runPartition({
       circuit_id: shared.circuit.circuit_id,
       ...params,
     })
     shared.taskId = data.task_id
+
     const poll = async () => {
       if (!isMounted) return
-      const { data: s } = await api.getTaskStatus(shared.taskId)
+      const { data: status } = await api.getTaskStatus(shared.taskId)
       if (!isMounted) return
-      progress.value = s.progress || 0
-      statusMsg.value = s.message
-      if (s.status === 'completed') {
+      progress.value = status.progress || 0
+      statusMsg.value = status.message || '任务处理中...'
+
+      if (status.status === 'completed') {
         progress.value = 100
-        const { data: r } = await api.getPartitionResult(shared.taskId)
+        const { data: result } = await api.getPartitionResult(shared.taskId)
         if (!isMounted) return
-        shared.partitionResult = r
+        shared.partitionResult = result
         shared.workflowStatus = 'partial_completed'
         shared.currentStage = 'distributed_compiling'
         shared.stageRuns = {
@@ -364,106 +390,122 @@ async function handleRun() {
           aggregating: 'pending',
           completed: 'pending',
         }
+
         try {
-          const { data: g } = await api.getGraphData(shared.taskId)
-          if (isMounted) shared.edgeCosts = g.edge_costs
-        } catch {}
+          const { data: graphData } = await api.getGraphData(shared.taskId)
+          if (isMounted) {
+            shared.edgeCosts = graphData.edge_costs ?? null
+          }
+        } catch {
+          if (isMounted) {
+            shared.edgeCosts = null
+          }
+        }
+
         loading.value = false
         await nextTick()
-        if (isMounted) renderGraph()
+        if (isMounted) await renderGraph()
         ElMessage.success('分区计算完成')
-      } else if (s.status === 'failed') {
-        if (isMounted) {
-          loading.value = false
-          shared.workflowStatus = 'failed'
-          shared.stageRuns = {
-            ...shared.stageRuns,
-            distributed_compiling: 'failed',
-            aggregating: 'pending',
-            completed: 'pending',
-          }
-          shared.lastError = s.message || '分区计算失败'
-          ElMessage.error('计算失败')
+      } else if (status.status === 'failed') {
+        if (!isMounted) return
+        loading.value = false
+        shared.workflowStatus = 'failed'
+        shared.stageRuns = {
+          ...shared.stageRuns,
+          distributed_compiling: 'failed',
+          aggregating: 'pending',
+          completed: 'pending',
         }
+        shared.lastError = status.message || '分区计算失败'
+        ElMessage.error('计算失败')
       } else {
         pollTimer = setTimeout(poll, 800)
       }
     }
-    poll()
-  } catch (e) {
-    if (isMounted) {
-      loading.value = false
-      shared.workflowStatus = 'failed'
-      shared.stageRuns = {
-        ...shared.stageRuns,
-        distributed_compiling: 'failed',
-        aggregating: 'pending',
-        completed: 'pending',
-      }
-      shared.lastError = e.response?.data?.detail || e.message
-      ElMessage.error('启动失败')
+
+    void poll()
+  } catch (error) {
+    if (!isMounted) return
+    loading.value = false
+    shared.workflowStatus = 'failed'
+    shared.stageRuns = {
+      ...shared.stageRuns,
+      distributed_compiling: 'failed',
+      aggregating: 'pending',
+      completed: 'pending',
     }
+    shared.lastError = error.response?.data?.detail || error.message
+    ElMessage.error('启动失败')
   }
 }
 
-function renderGraph() {
+async function renderGraph() {
   try {
     if (!graphContainer.value || !shared.partitionResult?.partitions) return
+    const { Network, DataSet } = await loadVisModules()
+    if (!isMounted || !graphContainer.value) return
+
     const parts = shared.partitionResult.partitions
     const costs = shared.edgeCosts || {}
     const colors = [
       '#36cfc9', '#597ef7', '#ffc53d', '#ff7a45',
       '#73d13d', '#ff85c0', '#9254de', '#5cdbd3',
     ]
-    const nodes = parts.map((p, i) => ({
-      id: `P${i + 1}`,
-      label: `分区${i + 1}\n(${p.size} 量子比特)`,
-      size: 30 + p.size * 6,
+
+    const nodes = parts.map((part, index) => ({
+      id: `P${index + 1}`,
+      label: `分区${index + 1}\n(${part.size} 量子比特)`,
+      size: 30 + part.size * 6,
       font: { size: 14, face: 'system-ui' },
-      color: { background: colors[i % colors.length], border: '#1a1a2e' },
+      color: { background: colors[index % colors.length], border: '#1a1a2e' },
     }))
+
     const edges = []
-    for (let i = 0; i < parts.length; i++) {
-      for (let j = i + 1; j < parts.length; j++) {
+    for (let i = 0; i < parts.length; i += 1) {
+      for (let j = i + 1; j < parts.length; j += 1) {
         const key = `P${i + 1}-P${j + 1}`
-        const w = costs[key] ?? costs[`P${j + 1}-P${i + 1}`] ?? 0
+        const weight = costs[key] ?? costs[`P${j + 1}-P${i + 1}`] ?? 0
         edges.push({
           from: `P${i + 1}`,
           to: `P${j + 1}`,
-          label: String(w),
-          width: Math.max(1, Math.min(8, w / 5)),
+          label: String(weight),
+          width: Math.max(1, Math.min(8, weight / 5)),
           font: { size: 16, strokeWidth: 3, strokeColor: '#fff' },
           color: { color: '#b0b8c8', highlight: '#36cfc9' },
         })
       }
     }
+
     if (network) {
-      try { network.destroy() } catch {}
+      try {
+        network.destroy()
+      } catch {
+        // vis-network may already be disposed
+      }
       network = null
     }
-    if (graphContainer.value) {
-      network = new Network(
-        graphContainer.value,
-        { nodes: new DataSet(nodes), edges: new DataSet(edges) },
-        {
-          physics: {
-            solver: 'forceAtlas2Based',
-            stabilization: { iterations: 80 },
-          },
-          edges: { smooth: { type: 'continuous' } },
-        }
-      )
-    }
-  } catch (e) {
-    console.warn('renderGraph error:', e)
+
+    network = new Network(
+      graphContainer.value,
+      { nodes: new DataSet(nodes), edges: new DataSet(edges) },
+      {
+        physics: {
+          solver: 'forceAtlas2Based',
+          stabilization: { iterations: 80 },
+        },
+        edges: { smooth: { type: 'continuous' } },
+      }
+    )
+  } catch (error) {
+    shared.lastError = shared.lastError || error.message
   }
 }
 
-watch(() => shared.edgeCosts, () => nextTick(renderGraph))
+watch(() => shared.edgeCosts, () => nextTick(() => { void renderGraph() }))
 
 onMounted(() => {
   isMounted = true
-  if (shared.partitionResult) nextTick(renderGraph)
+  if (shared.partitionResult) nextTick(() => { void renderGraph() })
 })
 
 onUnmounted(() => {
@@ -473,15 +515,20 @@ onUnmounted(() => {
     pollTimer = null
   }
   if (network) {
-    try { network.destroy() } catch {}
+    try {
+      network.destroy()
+    } catch {
+      // vis-network may already be disposed
+    }
     network = null
   }
-  if (graphContainer.value) graphContainer.value.innerHTML = ''
+  if (graphContainer.value) {
+    graphContainer.value.innerHTML = ''
+  }
 })
 </script>
 
 <style scoped>
-/* ===== Page Layout ===== */
 .partition-page {
   max-width: 1500px;
   display: flex;
@@ -489,7 +536,6 @@ onUnmounted(() => {
   gap: 20px;
 }
 
-/* ===== Top Panels: 3 equal columns ===== */
 .top-panels {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -497,7 +543,6 @@ onUnmounted(() => {
   align-items: start;
 }
 
-/* ===== Results Section: 1:2 ratio ===== */
 .results-section {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -505,20 +550,20 @@ onUnmounted(() => {
   align-items: start;
 }
 
-/* ===== Panel Card ===== */
 .panel-card {
-  background: #fff;
-  border-radius: 10px;
-  border: 1px solid #e8ecf1;
+  background: linear-gradient(180deg, #ffffff, #f9fbff);
+  border-radius: 16px;
+  border: 1px solid #e6ebf2;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.2s, border-color 0.2s;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
 }
 
 .panel-card:hover {
-  border-color: #d0d8e0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border-color: #d7e3f3;
+  box-shadow: 0 10px 24px rgba(15, 23, 40, 0.05);
+  transform: translateY(-1px);
 }
 
 .panel-header {
@@ -526,8 +571,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 14px 18px;
-  background: #fafbfc;
-  border-bottom: 1px solid #f0f2f5;
+  background: #f7faff;
+  border-bottom: 1px solid #edf1f6;
   font-weight: 600;
   font-size: 0.9rem;
   color: #1a1a2e;
@@ -540,9 +585,9 @@ onUnmounted(() => {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 6px;
-  background: #f0f2f5;
-  color: #597ef7;
+  border-radius: 8px;
+  background: #edf4ff;
+  color: #2456b8;
   flex-shrink: 0;
 }
 
@@ -566,39 +611,41 @@ onUnmounted(() => {
 .panel-placeholder {
   align-items: center;
   justify-content: center;
-  min-height: 180px;
+  min-height: 200px;
+  border: 1px dashed #d9e3f0;
+  border-radius: 12px;
+  background: #fbfcfe;
 }
 
 .placeholder-icon {
-  color: #d0d5dd;
+  color: #b8c2cf;
   margin-bottom: 12px;
 }
 
 .placeholder-text {
   font-size: 0.8rem;
-  color: #999;
+  color: #98a2b3;
   text-align: center;
   line-height: 1.6;
 }
 
-/* ===== Upload Area ===== */
 .upload-area {
   width: 100%;
 }
 
 .upload-icon {
   font-size: 2rem;
-  color: #c0c8d4;
+  color: #8fa8c7;
 }
 
 .upload-text {
   font-size: 0.85rem;
-  color: #666;
+  color: #667085;
   margin-top: 8px;
 }
 
 .upload-text em {
-  color: #597ef7;
+  color: #2456b8;
   font-style: normal;
   cursor: pointer;
 }
@@ -608,7 +655,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   margin: 14px 0;
-  color: #bbb;
+  color: #98a2b3;
   font-size: 0.72rem;
 }
 
@@ -617,7 +664,7 @@ onUnmounted(() => {
   content: '';
   flex: 1;
   height: 1px;
-  background: #e8ecf1;
+  background: #e6ebf2;
 }
 
 .qasm-input {
@@ -628,12 +675,11 @@ onUnmounted(() => {
 .action-btn {
   width: 100%;
   margin-top: 14px;
-  height: 38px;
-  border-radius: 8px;
-  font-weight: 500;
+  height: 40px;
+  border-radius: 10px;
+  font-weight: 600;
 }
 
-/* ===== Stat Grid ===== */
 .stat-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -643,14 +689,14 @@ onUnmounted(() => {
 .stat-item {
   text-align: center;
   padding: 12px 8px;
-  background: #fafbfc;
-  border-radius: 8px;
-  border: 1px solid #f0f2f5;
+  background: #fafcff;
+  border-radius: 12px;
+  border: 1px solid #e6ebf2;
 }
 
 .stat-item.highlight {
-  background: #fff7e6;
-  border-color: #ffd591;
+  background: linear-gradient(180deg, #fff7eb, #ffffff);
+  border-color: #f5d4a6;
 }
 
 .stat-value {
@@ -674,11 +720,10 @@ onUnmounted(() => {
 .stat-label {
   display: block;
   font-size: 0.7rem;
-  color: #999;
+  color: #98a2b3;
   margin-top: 4px;
 }
 
-/* ===== Param Form ===== */
 .param-form {
   flex: 1;
   display: flex;
@@ -706,17 +751,16 @@ onUnmounted(() => {
 .progress-area {
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 1px solid #edf1f6;
 }
 
 .progress-msg {
   font-size: 0.72rem;
-  color: #999;
+  color: #98a2b3;
   text-align: center;
   margin-top: 6px;
 }
 
-/* ===== Results ===== */
 .stat-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
@@ -727,9 +771,9 @@ onUnmounted(() => {
 .stat-card {
   text-align: center;
   padding: 14px 8px;
-  background: linear-gradient(135deg, #fafbfc, #f5f7fa);
-  border-radius: 8px;
-  border: 1px solid #e8ecf1;
+  background: linear-gradient(180deg, #ffffff, #f7fbff);
+  border-radius: 12px;
+  border: 1px solid #e6ebf2;
 }
 
 .stat-card-value {
@@ -743,7 +787,7 @@ onUnmounted(() => {
 .stat-card-label {
   display: block;
   font-size: 0.68rem;
-  color: #999;
+  color: #98a2b3;
   margin-top: 2px;
 }
 
@@ -761,10 +805,9 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 1px solid #edf1f6;
 }
 
-/* ===== Graph ===== */
 .graph-body {
   padding: 12px;
 }
@@ -772,16 +815,52 @@ onUnmounted(() => {
 .graph-container {
   width: 100%;
   height: 450px;
-  border: 1px solid #f0f2f5;
-  border-radius: 6px;
-  background: #fafbfc;
+  border: 1px solid #e6ebf2;
+  border-radius: 12px;
+  background: radial-gradient(circle at top, rgba(55, 125, 255, 0.06), transparent 40%), #f8fbff;
 }
 
-/* ===== Responsive ===== */
+:deep(.el-upload-dragger) {
+  border-radius: 12px;
+  border-color: #d7e3f3;
+  background: #fbfcff;
+}
+
+:deep(.el-upload-dragger:hover) {
+  border-color: #9fcbff;
+}
+
+:deep(.el-descriptions__label),
+:deep(.el-descriptions__content) {
+  font-size: 0.78rem;
+}
+
+:deep(.el-table) {
+  --el-table-border-color: #e6ebf2;
+  --el-table-header-bg-color: #f7faff;
+  --el-table-row-hover-bg-color: #f8fbff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+:deep(.el-input__wrapper),
+:deep(.el-textarea__inner),
+:deep(.el-upload-dragger),
+:deep(.el-input-number),
+:deep(.el-slider__runway) {
+  border-radius: 12px;
+}
+
+:deep(.el-button--primary.action-btn) {
+  background: linear-gradient(135deg, #18baa9, #377dff);
+  border: none;
+}
+
 @media (max-width: 1200px) {
   .top-panels {
     grid-template-columns: 1fr 1fr;
   }
+
   .results-section {
     grid-template-columns: 1fr;
   }
@@ -790,6 +869,14 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .top-panels {
     grid-template-columns: 1fr;
+  }
+
+  .stat-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .download-row {
+    flex-direction: column;
   }
 }
 </style>

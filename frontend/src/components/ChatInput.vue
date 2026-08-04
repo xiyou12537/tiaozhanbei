@@ -20,7 +20,7 @@
         <el-icon :size="18"><Promotion /></el-icon>
       </button>
     </div>
-    <p class="input-hint" v-if="!disabled">Enter 发送 · Shift+Enter 换行</p>
+    <p v-if="!disabled" class="input-hint">Enter 发送 · Shift+Enter 换行</p>
   </div>
 </template>
 
@@ -41,7 +41,7 @@ function autoResize() {
   const el = inputRef.value
   if (el) {
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }
 }
 
@@ -52,7 +52,9 @@ function handleSend() {
   text.value = ''
   nextTick(() => {
     const el = inputRef.value
-    if (el) { el.style.height = 'auto' }
+    if (el) {
+      el.style.height = 'auto'
+    }
   })
 }
 
@@ -62,20 +64,22 @@ defineExpose({ focus: () => inputRef.value?.focus() })
 <style scoped>
 .chat-input-area {
   padding: 12px 16px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  background: rgba(0,0,0,0.15);
+  border-top: 1px solid rgba(166, 204, 247, 0.1);
+  background: rgba(255, 255, 255, 0.03);
 }
+
 .input-row {
   display: flex;
   gap: 8px;
   align-items: flex-end;
 }
+
 .chat-textarea {
   flex: 1;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(166, 204, 247, 0.12);
   border-radius: 10px;
-  color: #e8eaed;
+  color: #eef4fb;
   font-size: 0.85rem;
   font-family: inherit;
   padding: 10px 14px;
@@ -85,15 +89,26 @@ defineExpose({ focus: () => inputRef.value?.focus() })
   max-height: 120px;
   transition: border-color 0.2s;
 }
-.chat-textarea:focus { border-color: rgba(54,207,201,0.3); }
-.chat-textarea::placeholder { color: #4a5d70; }
-.chat-textarea:disabled { opacity: 0.5; }
+
+.chat-textarea:focus {
+  border-color: rgba(103, 213, 202, 0.28);
+}
+
+.chat-textarea::placeholder {
+  color: #71859b;
+}
+
+.chat-textarea:disabled {
+  opacity: 0.5;
+}
+
 .send-btn {
-  width: 38px; height: 38px;
+  width: 38px;
+  height: 38px;
   border-radius: 10px;
   border: none;
-  background: rgba(255,255,255,0.06);
-  color: #5a6d80;
+  background: rgba(255, 255, 255, 0.06);
+  color: #7e91a7;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -101,12 +116,23 @@ defineExpose({ focus: () => inputRef.value?.focus() })
   flex-shrink: 0;
   transition: all 0.2s;
 }
-.send-btn.active { background: rgba(54,207,201,0.15); color: #36cfc9; }
-.send-btn.active:hover { background: rgba(54,207,201,0.25); }
-.send-btn:disabled { cursor: not-allowed; }
+
+.send-btn.active {
+  background: rgba(103, 213, 202, 0.15);
+  color: #8ce9df;
+}
+
+.send-btn.active:hover {
+  background: rgba(103, 213, 202, 0.25);
+}
+
+.send-btn:disabled {
+  cursor: not-allowed;
+}
+
 .input-hint {
   font-size: 0.65rem;
-  color: #3a4d60;
+  color: #61758b;
   margin-top: 6px;
   text-align: center;
 }
