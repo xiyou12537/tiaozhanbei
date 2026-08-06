@@ -136,7 +136,7 @@ class GreedyPartitioner:
         # Pre-compute once
         self._qubit_gate_map = compute_qubit_gate_map(gates)
         self._interaction = compute_interaction_matrix(gates)
-        self._target_size = len(qubits) // num_partitions + max_imbalance
+        self._target_size = len(qubits) // num_partitions
 
     def run(self) -> Optional[PartitionScheme]:
         """Run the multi-start greedy search.
@@ -220,15 +220,50 @@ class GreedyPartitioner:
             self._expand_partition(part, unassigned)
             partitions.append(part)
 
-        # Balance: assign remaining qubits to smallest partitions
+        # Assign remainder qubits one at a time.  Every partition starts at
+        # the integer-division base size and can receive at most one extra
+        # qubit, so the final size difference cannot exceed one.
         if len(partitions) < self._num_partitions:
             partitions.append(list(unassigned))
         else:
-            for q in unassigned:
-                smallest = min(partitions, key=len)
-                smallest.append(q)
+            for q in sorted(unassigned):
+                eligible_indices = [
+                    index
+                    for index, partition in enumerate(partitions)
+                    if len(partition) == self._target_size
+                ]
+                if not eligible_indices:
+                    return None
+                best_index = max(
+                    eligible_indices,
+                    key=lambda index: self._score_remainder_assignment(
+                        q, partitions[index]
+                    ),
+                )
+                partitions[best_index].append(q)
 
         return partitions
+
+    def _score_remainder_assignment(self, qubit: int, partition: List[int]) -> float:
+        """Score a remainder qubit against one eligible base-size partition."""
+        interaction_score = sum(
+            self._interaction.get(qubit, {}).get(other, 0)
+            for other in partition
+        )
+        current_span = count_colour_segments(
+            compute_coloured_sequence(self._qubit_gate_map, partition)
+        )
+        candidate_span = count_colour_segments(
+            compute_coloured_sequence(self._qubit_gate_map, partition + [qubit])
+        )
+        return compute_partition_score(
+            interaction_score,
+            candidate_span - current_span,
+            b1=self._b1,
+            b2=self._b2,
+            alpha=self._alpha,
+            beta=self._beta,
+        )
 
     def _expand_partition(
         self, partition: List[int], unassigned: Set[int]
