@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     CP2K_EXECUTABLE: str = "cp2k"
     DFT_MAX_TIMEOUT_SECONDS: int = 3600
     RESEARCH_BENCHMARK_ADMIN_USERNAMES: str = ""
+    LEGACY_PLATFORM_ROUTERS_ENABLED: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -32,3 +33,8 @@ def has_platform_database() -> bool:
 def has_workflow_queue() -> bool:
     """Return whether RabbitMQ queue dispatch is configured."""
     return bool(settings.RABBITMQ_URL.strip())
+
+
+def legacy_platform_routers_enabled() -> bool:
+    """Whether legacy materials/DFT platform endpoints are publicly mounted."""
+    return settings.LEGACY_PLATFORM_ROUTERS_ENABLED

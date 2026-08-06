@@ -18,7 +18,7 @@ except ImportError:
 
 from .api.routers.platform import router as platform_router
 from .api.routers.molecule_workflow import router as molecule_workflow_router
-from .core.config import has_platform_database, has_workflow_queue
+from .core.config import has_platform_database, has_workflow_queue, legacy_platform_routers_enabled
 from .database import SessionLocal, init_db, init_platform_db
 from .routers import auth, chat, circuit, export, history, knowledge, mapping, partitioning
 from .services.runtime_status import get_quantum_runtime_status
@@ -39,14 +39,14 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
-    title="Liangzhi Liuguang Distributed Quantum Platform",
+    title="Liangzhi Molecular Quantum Workflow API",
     description="""
 ## Liangzhi Liuguang Backend Service
 
-This backend currently exposes two groups of APIs:
-
-1. Legacy compatibility APIs: `/api/auth`, `/api/knowledge`, `/api/chat`, `/api/circuit`, `/api/partition`, `/api/mapping`
-2. Platform workflow APIs: `/api/platform/**`
+This product mode exposes authenticated molecular quantum workflows and their
+logical virtual-QPU routing evidence. It does not represent real-QPU execution.
+Set `LEGACY_PLATFORM_ROUTERS_ENABLED=true` only when legacy platform APIs are
+explicitly required for a compatibility deployment.
     """,
     version=APP_VERSION,
 )
@@ -64,15 +64,16 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-app.include_router(circuit.router)
-app.include_router(partitioning.router)
-app.include_router(mapping.router)
-app.include_router(export.router)
-app.include_router(history.router)
-app.include_router(chat.router)
-app.include_router(knowledge.router)
-app.include_router(platform_router)
 app.include_router(molecule_workflow_router)
+if legacy_platform_routers_enabled():
+    app.include_router(circuit.router)
+    app.include_router(partitioning.router)
+    app.include_router(mapping.router)
+    app.include_router(export.router)
+    app.include_router(history.router)
+    app.include_router(chat.router)
+    app.include_router(knowledge.router)
+    app.include_router(platform_router)
 
 
 @app.get("/api/health")
@@ -118,3 +119,38 @@ def health_check():
         "docs_url": "/docs",
         "services": services,
     }
+
+
+def create_app(*, legacy_enabled: bool = False) -> FastAPI:
+    """Create an explicit compatibility app without changing product defaults.
+
+    The module-level ``app`` follows the environment switch for deployment. Test
+    suites that exercise the retired platform pass ``legacy_enabled=True`` so
+    the default OpenAPI remains molecule-workflow-only.
+    """
+    if not legacy_enabled:
+        return app
+    compatibility_app = FastAPI(
+        lifespan=lifespan,
+        title="Liangzhi Legacy Compatibility API",
+        version=APP_VERSION,
+    )
+    compatibility_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    compatibility_app.include_router(auth.router)
+    compatibility_app.include_router(molecule_workflow_router)
+    compatibility_app.include_router(circuit.router)
+    compatibility_app.include_router(partitioning.router)
+    compatibility_app.include_router(mapping.router)
+    compatibility_app.include_router(export.router)
+    compatibility_app.include_router(history.router)
+    compatibility_app.include_router(chat.router)
+    compatibility_app.include_router(knowledge.router)
+    compatibility_app.include_router(platform_router)
+    compatibility_app.add_api_route("/api/health", health_check, methods=["GET"])
+    return compatibility_app

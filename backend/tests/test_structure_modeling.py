@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.routers.platform import structure_modeling_service
 from backend.core.config import settings
-from backend.main import app
+from backend.main import create_app
 from backend.services.structure_modeling import service as structure_modeling_module
 from backend.services.structure_modeling.service import MAX_FILE_SIZE_BYTES
 
@@ -75,7 +75,7 @@ S2 S 0.666667 0.333333 0.750000
 
 class StructureModelingTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.client_context = TestClient(app)
+        self.client_context = TestClient(create_app(legacy_enabled=True))
         self.client = self.client_context.__enter__()
         self.owner_headers = self._register_headers("owner")
         self.other_headers = self._register_headers("other")

@@ -5,13 +5,13 @@ import unittest
 from fastapi.testclient import TestClient
 
 from backend.api.routers import platform
-from backend.main import app
+from backend.main import create_app
 
 
 class PlatformWorkflowTests(unittest.TestCase):
     def setUp(self):
         platform.WORKFLOW_REPOSITORY.clear()
-        self.client = TestClient(app)
+        self.client = TestClient(create_app(legacy_enabled=True))
 
     def test_legacy_platform_workflow_endpoints_remain_available(self):
         create_response = self.client.post(

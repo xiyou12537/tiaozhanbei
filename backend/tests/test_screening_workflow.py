@@ -5,13 +5,13 @@ import unittest
 from fastapi.testclient import TestClient
 
 from backend.api.routers import platform
-from backend.main import app
+from backend.main import create_app
 
 
 class ScreeningWorkflowTests(unittest.TestCase):
     def setUp(self):
         platform.SCREENING_WORKFLOWS.clear()
-        self.client = TestClient(app)
+        self.client = TestClient(create_app(legacy_enabled=True))
         self.created_workflow_ids: list[str] = []
 
     def tearDown(self):

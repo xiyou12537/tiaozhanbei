@@ -27,7 +27,8 @@ class LogicalVirtualQPUSimulator:
     def execute(
         self,
         *,
-        qasm_content: str,
+        qasm_content: str | None = None,
+        routed_execution_plan: list[dict[str, Any]] | None = None,
         qubit_count: int,
         pauli_terms: list[dict[str, Any]],
         partitions: list[list[int]],
@@ -38,14 +39,30 @@ class LogicalVirtualQPUSimulator:
             partitions,
             virtual_node_mapping,
         )
-        operations = self._parse_qasm(qasm_content, qubit_count)
         state = np.zeros((2,) * qubit_count, dtype=complex)
         state[(0,) * qubit_count] = 1.0
         qubit_to_axis = {qubit: axis for axis, qubit in enumerate(axis_order)}
-        communication_events: list[dict[str, Any]] = []
-        local_gate_count = 0
-
-        for gate_index, operation in enumerate(operations):
+        if routed_execution_plan is not None:
+            execution = self._execute_routed_plan(
+                state=state,
+                qubit_to_axis=qubit_to_axis,
+                routed_execution_plan=routed_execution_plan,
+                partition_to_node=partition_to_node,
+            )
+            state = execution["state"]
+            communication_events = execution["communication_events"]
+            local_gate_count = execution["local_gate_count"]
+            actual_routed_plan_consumption = True
+            final_layouts = execution["final_layouts"]
+        else:
+            if qasm_content is None:
+                raise DistributedSimulationError("A QASM circuit or routed execution plan is required.")
+            operations = self._parse_qasm(qasm_content, qubit_count)
+            communication_events = []
+            local_gate_count = 0
+            actual_routed_plan_consumption = False
+            final_layouts = None
+        for gate_index, operation in enumerate(operations if routed_execution_plan is None else []):
             if operation["gate"] == "x":
                 qubit = operation["qubits"][0]
                 matrix = np.asarray([[0, 1], [1, 0]], dtype=complex)
@@ -104,8 +121,119 @@ class LogicalVirtualQPUSimulator:
             "term_expectations": term_expectations,
             "axis_order_by_virtual_node": axis_order,
             "actual_partition_consumption": True,
+            "actual_routed_plan_consumption": actual_routed_plan_consumption,
+            "final_logical_to_physical_layout": final_layouts,
             "simulation_strategy": "mapped_partition_tensor_contraction",
         }
+
+    def _execute_routed_plan(
+        self,
+        *,
+        state: np.ndarray,
+        qubit_to_axis: dict[int, int],
+        routed_execution_plan: list[dict[str, Any]],
+        partition_to_node: dict[str, str],
+    ) -> dict[str, Any]:
+        if not routed_execution_plan:
+            raise DistributedSimulationError("routed_execution_plan is empty")
+        current_layouts = self._normalise_layouts(routed_execution_plan[0].get("logical_to_physical_layout_before"))
+        communication_events: list[dict[str, Any]] = []
+        local_gate_count = 0
+        for expected_index, step in enumerate(routed_execution_plan):
+            if step.get("execution_index") != expected_index:
+                raise DistributedSimulationError("routed_execution_plan_execution_index_mismatch")
+            before = self._normalise_layouts(step.get("logical_to_physical_layout_before"))
+            if before != current_layouts:
+                raise DistributedSimulationError("routed_execution_plan_layout_mismatch")
+            operation = step.get("operation")
+            logical_qubits = step.get("logical_qubits", [])
+            physical_qubits = step.get("physical_qubits", [])
+            partition_ids = step.get("partition_ids", [])
+            if operation == "swap":
+                if len(partition_ids) != 1 or len(physical_qubits) != 2:
+                    raise DistributedSimulationError("routed_execution_plan_invalid_swap")
+                self._swap_layout(current_layouts[partition_ids[0]], physical_qubits[0], physical_qubits[1])
+                local_gate_count += 1
+            elif operation in {"x", "ry", "cx"} and step.get("scope") == "intra_qpu":
+                if len(partition_ids) != 1:
+                    raise DistributedSimulationError("routed_execution_plan_invalid_intra_qpu_gate")
+                layout = current_layouts[partition_ids[0]]
+                reverse_layout = {physical: logical for logical, physical in layout.items()}
+                resolved_logical = [reverse_layout.get(physical) for physical in physical_qubits]
+                if None in resolved_logical or resolved_logical != logical_qubits:
+                    raise DistributedSimulationError("routed_execution_plan_layout_mismatch")
+                if operation == "x":
+                    state = self._apply_matrix(state, np.asarray([[0, 1], [1, 0]], dtype=complex), [qubit_to_axis[logical_qubits[0]]])
+                elif operation == "ry":
+                    angle = float(step["angle"])
+                    matrix = np.asarray(
+                        [[math.cos(angle / 2.0), -math.sin(angle / 2.0)], [math.sin(angle / 2.0), math.cos(angle / 2.0)]],
+                        dtype=complex,
+                    )
+                    state = self._apply_matrix(state, matrix, [qubit_to_axis[logical_qubits[0]]])
+                else:
+                    if step.get("physical_edge_is_valid") is not True:
+                        raise DistributedSimulationError("routed_execution_plan_invalid_physical_edge")
+                    state = self._apply_cx(state, qubit_to_axis, logical_qubits)
+                local_gate_count += 1
+            elif operation == "cx" and step.get("scope") == "inter_qpu":
+                if len(partition_ids) != 2 or len(logical_qubits) != 2:
+                    raise DistributedSimulationError("routed_execution_plan_invalid_inter_qpu_gate")
+                communication_events.append(
+                    {
+                        "gate_index": step["original_gate_index"],
+                        "gate": "cx",
+                        "control_qubit": logical_qubits[0],
+                        "target_qubit": logical_qubits[1],
+                        "source_partition_id": partition_ids[0],
+                        "target_partition_id": partition_ids[1],
+                        "source_virtual_node_id": partition_to_node[partition_ids[0]],
+                        "target_virtual_node_id": partition_to_node[partition_ids[1]],
+                    }
+                )
+                state = self._apply_cx(state, qubit_to_axis, logical_qubits)
+            else:
+                raise DistributedSimulationError("routed_execution_plan_unsupported_operation")
+            after = self._normalise_layouts(step.get("logical_to_physical_layout_after"))
+            if after != current_layouts:
+                raise DistributedSimulationError("routed_execution_plan_layout_mismatch")
+        return {
+            "state": state,
+            "communication_events": communication_events,
+            "local_gate_count": local_gate_count,
+            "final_layouts": {
+                partition_id: [
+                    {"logical_qubit": logical, "physical_qubit": physical}
+                    for logical, physical in sorted(layout.items())
+                ]
+                for partition_id, layout in sorted(current_layouts.items())
+            },
+        }
+
+    @staticmethod
+    def _normalise_layouts(value: Any) -> dict[str, dict[int, int]]:
+        if not isinstance(value, dict):
+            raise DistributedSimulationError("routed_execution_plan_missing_layout")
+        try:
+            return {
+                str(partition_id): {int(row["logical_qubit"]): int(row["physical_qubit"]) for row in rows}
+                for partition_id, rows in value.items()
+            }
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DistributedSimulationError("routed_execution_plan_invalid_layout") from exc
+
+    @staticmethod
+    def _swap_layout(layout: dict[int, int], source: int, target: int) -> None:
+        reverse_layout = {physical: logical for logical, physical in layout.items()}
+        source_logical, target_logical = reverse_layout.get(source), reverse_layout.get(target)
+        if source_logical is not None:
+            layout[source_logical] = target
+        if target_logical is not None:
+            layout[target_logical] = source
+
+    def _apply_cx(self, state: np.ndarray, qubit_to_axis: dict[int, int], qubits: list[int]) -> np.ndarray:
+        matrix = np.asarray([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
+        return self._apply_matrix(state, matrix, [qubit_to_axis[qubits[0]], qubit_to_axis[qubits[1]]])
 
     @staticmethod
     def _validate_plan(

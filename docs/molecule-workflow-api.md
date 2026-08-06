@@ -159,3 +159,82 @@ energies, partition plan, virtual-node mapping, and communication evidence.
 `nfev`, together with a normalized termination reason, best iteration, initial and
 final energy, and the most recent energy deltas. These diagnostics report the
 optimizer outcome as-is; they do not alter its convergence decision.
+
+## Contract v2: physical virtual-chip routing
+
+`GET /api/molecule-workflows/capabilities` is authenticated and declares the
+contract boundary. It reports supported elements/bases, `max_atom_count: 10`,
+`max_mapped_qubits: 12`, partition counts, `sequential_greedy`, user-supplied
+inter-QPU and physical coupling edge lists, `identity|dense_greedy` layout,
+`shortest_path_swap` routing, and only `logical_virtual_qpu` with
+`is_real_qpu: false`.
+
+`partition.topology_edges` remains accepted for compatibility, but new clients
+must send `inter_qpu_topology`. It describes the network between virtual QPUs;
+it is not a chip coupling map. Each `virtual_qpus[]` item carries a distinct
+`physical_qubit_count` and `physical_coupling_map` for that virtual chip.
+
+```json
+{
+  "molecule_name": "H2",
+  "geometry": [
+    {"element": "H", "coordinates_angstrom": [0.0, 0.0, 0.0]},
+    {"element": "H", "coordinates_angstrom": [0.0, 0.0, 0.735]}
+  ],
+  "charge": 0,
+  "spin_multiplicity": 1,
+  "basis_set": "sto-3g",
+  "mapping_method": "jordan_wigner",
+  "active_space_orbitals": 2,
+  "partition": {
+    "partition_count": 2,
+    "partition_strategy": "sequential_greedy",
+    "inter_qpu_topology": [{"source": 0, "target": 1}],
+    "virtual_qpus": [
+      {"virtual_qpu_id": "T1", "physical_qubit_count": 2, "physical_coupling_map": [{"source": 0, "target": 1}]},
+      {"virtual_qpu_id": "T2", "physical_qubit_count": 4, "physical_coupling_map": [{"source": 2, "target": 3}]}
+    ],
+    "initial_layout": "identity",
+    "routing_method": "shortest_path_swap"
+  },
+  "execution_mode": "logical_virtual_qpu"
+}
+```
+
+Each v2 result persists `contract_version: "2.0"`, `inter_qpu_topology`,
+`partition_chip_routing`, initial/final logical-to-physical layouts, routed gate
+sequences, per-CX route evidence, original/routed two-qubit counts, and
+`intra_chip_routing_cost`. These are intentionally separate from
+`communication_events` and `cross_partition_communication_count`.
+
+P0.1 adds a tenth `chip_topology_routing` stage and makes
+`distribution.routed_execution_plan` the actual input of logical distributed
+simulation. Every plan step has global `execution_index`, `original_gate_index`,
+physical gate addresses, scope (`intra_qpu|inter_qpu`), and before/after layouts.
+`actual_routed_plan_consumption: true` proves that the result was produced from
+this plan. The simulator resolves physical operations through the current layout
+and evaluates observables against the final logical-to-physical layout.
+
+The depth-looking fields were replaced with operation counts:
+`original_operation_count`, `routed_operation_count`,
+`original_two_qubit_operation_count`, and
+`routed_two_qubit_operation_count`. Routing cost separately exposes
+`abstract_swap_count`, routed two-qubit operation count, and
+`native_two_qubit_gate_equivalent_count` (one SWAP equals three native CX).
+Physical addresses are local to each virtual chip (`0..N-1`); the default chip
+capacity is the assigned partition size. Only `identity` layout is advertised in
+P0.1; `dense_greedy` is intentionally not exposed.
+
+For UI routing visualisation, use the zero-SWAP full response fixture above and
+the [forced-SWAP execution-plan fixture](fixtures/molecule-workflow-v2-h2-forced-swap-success.json).
+
+When the physical capacity is too small or no path exists, POST returns the
+normal 422 business error shape with `physical_qubit_insufficient` or
+`physical_coupling_disconnected`, stage `chip_topology_routing`. Existing
+persisted workflows can omit v2 fields; their response has `contract_version`
+and routing fields as `null` rather than failing GET.
+
+The front-end-ready full H2 success fixture is
+[`docs/fixtures/molecule-workflow-v2-h2-success.json`](fixtures/molecule-workflow-v2-h2-success.json).
+It represents virtual-node logical distributed simulation only, never real-QPU
+execution.

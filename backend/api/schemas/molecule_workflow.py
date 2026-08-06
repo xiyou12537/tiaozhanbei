@@ -38,7 +38,29 @@ class TopologyEdge(BaseModel):
 
 class PartitionOptions(BaseModel):
     partition_count: int = Field(default=2, ge=2, le=3)
+    partition_strategy: Literal["sequential_greedy"] = "sequential_greedy"
+    inter_qpu_topology: list[TopologyEdge] | None = Field(default=None, min_length=1, max_length=3)
     topology_edges: list[TopologyEdge] | None = Field(default=None, min_length=1, max_length=3)
+    virtual_qpus: list["VirtualQpuRequest"] | None = Field(default=None, min_length=2, max_length=3)
+    initial_layout: Literal["identity"] = "identity"
+    routing_method: Literal["shortest_path_swap"] = "shortest_path_swap"
+
+
+class PhysicalCouplingEdge(BaseModel):
+    source: int = Field(..., ge=0, le=11)
+    target: int = Field(..., ge=0, le=11)
+
+    @model_validator(mode="after")
+    def reject_self_loop(self):
+        if self.source == self.target:
+            raise ValueError("物理耦合拓扑不允许自环。")
+        return self
+
+
+class VirtualQpuRequest(BaseModel):
+    virtual_qpu_id: str = Field(..., min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._:-]+$")
+    physical_qubit_count: int = Field(..., ge=1, le=12)
+    physical_coupling_map: list[PhysicalCouplingEdge] = Field(default_factory=list, max_length=66)
 
 
 class MoleculeWorkflowRequest(BaseModel):
@@ -65,7 +87,14 @@ class MoleculeWorkflowRequest(BaseModel):
                     },
                     "partition": {
                         "partition_count": 2,
-                        "topology_edges": [{"source": 0, "target": 1}],
+                        "partition_strategy": "sequential_greedy",
+                        "inter_qpu_topology": [{"source": 0, "target": 1}],
+                        "virtual_qpus": [
+                            {"virtual_qpu_id": "T1", "physical_qubit_count": 2, "physical_coupling_map": [{"source": 0, "target": 1}]},
+                            {"virtual_qpu_id": "T2", "physical_qubit_count": 4, "physical_coupling_map": [{"source": 2, "target": 3}]},
+                        ],
+                        "initial_layout": "identity",
+                        "routing_method": "shortest_path_swap",
                     },
                     "execution_mode": "logical_virtual_qpu",
                 }
@@ -169,6 +198,7 @@ class PartitionAssignment(BaseModel):
 
 class PartitionSchemeResult(BaseModel):
     method: str
+    strategy: Literal["sequential_greedy"] | None = None
     partition_count: int
     partitions: list[PartitionAssignment]
     teleportations: int
@@ -180,6 +210,67 @@ class VirtualNodeAssignment(BaseModel):
     virtual_node_id: str
     partition_id: str
     qubits: list[int]
+
+
+class LogicalPhysicalLayout(BaseModel):
+    logical_qubit: int
+    physical_qubit: int
+
+
+class RoutedGate(BaseModel):
+    gate: str
+    physical_qubits: list[int]
+
+
+class TwoQubitRoutingEvidence(BaseModel):
+    partition_id: str
+    virtual_qpu_id: str
+    gate_index: int
+    gate: Literal["cx"]
+    logical_qubits: list[int]
+    initial_physical_qubits: list[int]
+    final_physical_qubits: list[int]
+    routing_status: Literal["direct", "routed"]
+    path: list[int]
+    swap_positions: list[int]
+    swap_path: list[list[int]]
+
+
+class PartitionChipRouting(BaseModel):
+    partition_id: str
+    virtual_qpu_id: str
+    logical_qubits: list[int]
+    physical_qubit_count: int
+    physical_coupling_map: list[PhysicalCouplingEdge]
+    logical_to_physical_initial: list[LogicalPhysicalLayout]
+    logical_to_physical_final: list[LogicalPhysicalLayout]
+    original_operation_count: int
+    routed_operation_count: int
+    original_two_qubit_operation_count: int
+    routed_two_qubit_operation_count: int
+    routed_gate_sequence: list[RoutedGate]
+    two_qubit_routing_evidence: list[TwoQubitRoutingEvidence]
+
+
+class IntraChipRoutingCost(BaseModel):
+    abstract_swap_count: int
+    routed_two_qubit_operation_count: int
+    native_two_qubit_gate_equivalent_count: int
+
+
+class RoutedExecutionPlanStep(BaseModel):
+    execution_index: int
+    original_gate_index: int
+    operation: Literal["x", "ry", "cx", "swap"]
+    scope: Literal["intra_qpu", "inter_qpu"]
+    partition_ids: list[str]
+    virtual_qpu_ids: list[str]
+    logical_qubits: list[int]
+    physical_qubits: list[int]
+    physical_edge_is_valid: bool | None
+    logical_to_physical_layout_before: dict[str, list[LogicalPhysicalLayout]]
+    logical_to_physical_layout_after: dict[str, list[LogicalPhysicalLayout]]
+    angle: float | None = None
 
 
 class CommunicationEvent(BaseModel):
@@ -201,9 +292,18 @@ class DistributionResult(BaseModel):
     virtual_node_mapping: list[VirtualNodeAssignment]
     topology_edges: list[TopologyEdge]
     mapping_cost: float
+    inter_qpu_topology: list[TopologyEdge] | None = None
+    partition_chip_routing: list[PartitionChipRouting] | None = None
+    two_qubit_routing_evidence: list[TwoQubitRoutingEvidence] | None = None
+    routed_execution_plan: list[RoutedExecutionPlanStep] | None = None
+    original_two_qubit_operation_count: int | None = None
+    routed_two_qubit_operation_count: int | None = None
+    intra_chip_routing_cost: IntraChipRoutingCost | None = None
     cross_partition_communication_count: int
     communication_events: list[CommunicationEvent]
     actual_partition_consumption: Literal[True]
+    actual_routed_plan_consumption: bool | None = None
+    final_logical_to_physical_layout: dict[str, list[LogicalPhysicalLayout]] | None = None
     simulation_strategy: str
     state_norm: float
 
@@ -372,6 +472,7 @@ class MoleculeWorkflowResponse(BaseModel):
     model_config = ConfigDict(json_schema_extra={"examples": [SUCCESS_RESPONSE_EXAMPLE]})
 
     workflow_id: str
+    contract_version: str | None = None
     status: Literal["completed"]
     current_stage: Literal["completed"]
     validation_status: Literal["passed", "needs_review"]
@@ -386,6 +487,41 @@ class MoleculeWorkflowResponse(BaseModel):
     vqe: VqeResult
     distribution: DistributionResult
     energies: EnergyComparison
+
+
+CAPABILITIES_RESPONSE_EXAMPLE = {
+    "contract_version": "2.0",
+    "supported_elements": ["H", "Li", "O"],
+    "supported_basis_sets": ["sto-3g"],
+    "max_atom_count": 10,
+    "max_mapped_qubits": 12,
+    "partition_counts": [2, 3],
+    "partition_strategies": ["sequential_greedy"],
+    "inter_qpu_topologies": ["user_supplied_undirected_edge_list"],
+    "physical_coupling_maps": ["user_supplied_undirected_edge_list"],
+    "initial_layout_methods": ["identity"],
+    "routing_methods": ["shortest_path_swap"],
+    "execution_modes": ["logical_virtual_qpu"],
+    "is_real_qpu": False,
+}
+
+
+class MoleculeWorkflowCapabilitiesResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [CAPABILITIES_RESPONSE_EXAMPLE]})
+
+    contract_version: Literal["2.0"]
+    supported_elements: list[str]
+    supported_basis_sets: list[str]
+    max_atom_count: int
+    max_mapped_qubits: int
+    partition_counts: list[int]
+    partition_strategies: list[str]
+    inter_qpu_topologies: list[str]
+    physical_coupling_maps: list[str]
+    initial_layout_methods: list[str]
+    routing_methods: list[str]
+    execution_modes: list[Literal["logical_virtual_qpu"]]
+    is_real_qpu: Literal[False]
 
 
 class MoleculeWorkflowHistoryItem(BaseModel):

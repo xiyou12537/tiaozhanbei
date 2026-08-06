@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.api.schemas.molecule_workflow import (
     MoleculeWorkflowErrorResponse,
+    MoleculeWorkflowCapabilitiesResponse,
     MoleculeWorkflowHistoryResponse,
     MoleculeWorkflowRequest,
     MoleculeWorkflowResponse,
@@ -114,6 +115,31 @@ def _validate_idempotency_key(idempotency_key: str | None) -> str | None:
             },
         )
     return idempotency_key
+
+
+@router.get(
+    "/capabilities",
+    response_model=MoleculeWorkflowCapabilitiesResponse,
+    summary="查询分子 Workflow 的逻辑虚拟 QPU 能力边界",
+    responses={401: ERROR_RESPONSES[401]},
+)
+def get_molecule_workflow_capabilities(user: User = Depends(get_current_user)):
+    del user
+    return {
+        "contract_version": "2.0",
+        "supported_elements": ["H", "Li", "O"],
+        "supported_basis_sets": ["sto-3g"],
+        "max_atom_count": 10,
+        "max_mapped_qubits": 12,
+        "partition_counts": [2, 3],
+        "partition_strategies": ["sequential_greedy"],
+        "inter_qpu_topologies": ["user_supplied_undirected_edge_list"],
+        "physical_coupling_maps": ["user_supplied_undirected_edge_list"],
+        "initial_layout_methods": ["identity"],
+        "routing_methods": ["shortest_path_swap"],
+        "execution_modes": ["logical_virtual_qpu"],
+        "is_real_qpu": False,
+    }
 
 
 @router.post(

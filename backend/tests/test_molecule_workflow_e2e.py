@@ -19,6 +19,7 @@ from backend.services.molecule_workflow.distributed_simulator import (
     DistributedSimulationError,
     LogicalVirtualQPUSimulator,
 )
+from backend.services.molecule_workflow.chip_routing import ChipRoutingError, route_partition_circuits
 from backend.services.molecule_workflow.repository import MoleculeWorkflowRepository
 from backend.services.quantum_chemistry.vqe_service import VqeSimulatorService
 
@@ -433,6 +434,7 @@ def test_unified_api_closes_and_persists_all_three_molecule_workflows(authentica
         "vqe_optimization",
         "circuit_partitioning",
         "virtual_node_mapping",
+        "chip_topology_routing",
         "logical_distributed_simulation",
     ]
     assert result["hamiltonian"]["pauli_terms"]
@@ -442,6 +444,11 @@ def test_unified_api_closes_and_persists_all_three_molecule_workflows(authentica
     assert result["distribution"]["capability_level"] == "logical_virtual_qpu"
     assert result["distribution"]["is_real_qpu"] is False
     assert result["distribution"]["actual_partition_consumption"] is True
+    assert result["contract_version"] == "2.0"
+    assert result["distribution"]["inter_qpu_topology"] == [{"source": 0, "target": 1}]
+    assert result["distribution"]["partition_chip_routing"]
+    assert result["distribution"]["intra_chip_routing_cost"]["abstract_swap_count"] == 0
+    assert result["distribution"]["actual_routed_plan_consumption"] is True
     assert result["distribution"]["cross_partition_communication_count"] == len(
         result["distribution"]["communication_events"]
     )
@@ -573,6 +580,141 @@ cx q[2],q[3];
         )
 
 
+def test_physical_chip_routing_records_direct_and_swap_evidence_separately_from_communication():
+    direct = route_partition_circuits(
+        qasm_content='''OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[4];\ncx q[0],q[1];\ncx q[1],q[2];\ncx q[2],q[3];\n''',
+        partitions=[[0, 1], [2, 3]],
+        virtual_node_mapping=[
+            {"virtual_node_id": "T1", "partition_id": "P1", "qubits": [0, 1]},
+            {"virtual_node_id": "T2", "partition_id": "P2", "qubits": [2, 3]},
+        ],
+        chips=[
+            {"virtual_qpu_id": "T1", "physical_qubit_count": 2, "physical_coupling_map": [{"source": 0, "target": 1}]},
+            {"virtual_qpu_id": "T2", "physical_qubit_count": 2, "physical_coupling_map": [{"source": 0, "target": 1}]},
+        ],
+        initial_layout_method="identity",
+        routing_method="shortest_path_swap",
+    )
+
+    assert direct["intra_chip_routing_cost"]["abstract_swap_count"] == 0
+    assert direct["original_two_qubit_operation_count"] == 2
+    assert direct["cross_partition_gate_count"] == 1
+    assert all(item["routing_status"] == "direct" for item in direct["two_qubit_routing_evidence"])
+
+    swapped = route_partition_circuits(
+        qasm_content='''OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[4];\ncx q[0],q[1];\n''',
+        partitions=[[0, 1], [2, 3]],
+        virtual_node_mapping=[
+            {"virtual_node_id": "T1", "partition_id": "P1", "qubits": [0, 1]},
+            {"virtual_node_id": "T2", "partition_id": "P2", "qubits": [2, 3]},
+        ],
+        chips=[
+            {"virtual_qpu_id": "T1", "physical_qubit_count": 3, "physical_coupling_map": [{"source": 0, "target": 2}, {"source": 2, "target": 1}]},
+            {"virtual_qpu_id": "T2", "physical_qubit_count": 2, "physical_coupling_map": [{"source": 0, "target": 1}]},
+        ],
+        initial_layout_method="identity",
+        routing_method="shortest_path_swap",
+    )
+    assert swapped["intra_chip_routing_cost"]["abstract_swap_count"] == 1
+    evidence = swapped["two_qubit_routing_evidence"][0]
+    assert evidence["routing_status"] == "routed"
+    assert evidence["path"] == [0, 2, 1]
+    assert evidence["swap_positions"] == [0]
+
+
+def test_physical_chip_routing_rejects_insufficient_or_disconnected_chips():
+    kwargs = {
+        "qasm_content": 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[4];\ncx q[0],q[1];\n',
+        "partitions": [[0, 1], [2, 3]],
+        "virtual_node_mapping": [
+            {"virtual_node_id": "T1", "partition_id": "P1", "qubits": [0, 1]},
+            {"virtual_node_id": "T2", "partition_id": "P2", "qubits": [2, 3]},
+        ],
+        "initial_layout_method": "identity",
+        "routing_method": "shortest_path_swap",
+    }
+    with pytest.raises(ChipRoutingError, match="physical_qubit_insufficient"):
+        route_partition_circuits(
+            **kwargs,
+            chips=[
+                {"virtual_qpu_id": "T1", "physical_qubit_count": 1, "physical_coupling_map": []},
+                {"virtual_qpu_id": "T2", "physical_qubit_count": 4, "physical_coupling_map": [{"source": 2, "target": 3}]},
+            ],
+        )
+    with pytest.raises(ChipRoutingError, match="physical_coupling_disconnected"):
+        route_partition_circuits(
+            **kwargs,
+            chips=[
+                {"virtual_qpu_id": "T1", "physical_qubit_count": 3, "physical_coupling_map": [{"source": 0, "target": 2}]},
+                {"virtual_qpu_id": "T2", "physical_qubit_count": 2, "physical_coupling_map": [{"source": 0, "target": 1}]},
+            ],
+        )
+
+
+def test_swap_routed_execution_plan_is_consumed_and_preserves_logical_energy():
+    qasm = '''OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[4];
+ry(0.31) q[0];
+ry(-0.22) q[1];
+cx q[0],q[1];
+cx q[1],q[2];
+cx q[2],q[3];
+'''
+    partitions = [[0, 1], [2, 3]]
+    mapping = [
+        {"virtual_node_id": "T1", "partition_id": "P1", "qubits": [0, 1]},
+        {"virtual_node_id": "T2", "partition_id": "P2", "qubits": [2, 3]},
+    ]
+    routing = route_partition_circuits(
+        qasm_content=qasm,
+        partitions=partitions,
+        virtual_node_mapping=mapping,
+        chips=[
+            {"virtual_qpu_id": "T1", "physical_qubit_count": 3, "physical_coupling_map": [{"source": 0, "target": 2}, {"source": 2, "target": 1}]},
+            {"virtual_qpu_id": "T2", "physical_qubit_count": 2, "physical_coupling_map": [{"source": 0, "target": 1}]},
+        ],
+        initial_layout_method="identity",
+        routing_method="shortest_path_swap",
+    )
+    assert routing["intra_chip_routing_cost"]["abstract_swap_count"] > 0
+    assert any(item["operation"] == "swap" for item in routing["routed_execution_plan"])
+    assert all(
+        item["operation"] != "cx" or item["scope"] == "inter_qpu" or item["physical_edge_is_valid"]
+        for item in routing["routed_execution_plan"]
+    )
+
+    simulator = LogicalVirtualQPUSimulator()
+    terms = [{"pauli_string": "I", "coefficient": -0.4}, {"pauli_string": "Z0", "coefficient": 0.2}]
+    original = simulator.execute(
+        qasm_content=qasm,
+        qubit_count=4,
+        pauli_terms=terms,
+        partitions=partitions,
+        virtual_node_mapping=mapping,
+    )
+    routed = simulator.execute(
+        routed_execution_plan=routing["routed_execution_plan"],
+        qubit_count=4,
+        pauli_terms=terms,
+        partitions=partitions,
+        virtual_node_mapping=mapping,
+    )
+    assert routed["actual_routed_plan_consumption"] is True
+    assert routed["energy_hartree"] == pytest.approx(original["energy_hartree"], abs=1e-12)
+    assert routed["state_norm"] == pytest.approx(1.0, abs=1e-12)
+
+    broken_plan = [item for item in routing["routed_execution_plan"] if item["operation"] != "swap"]
+    with pytest.raises(DistributedSimulationError, match=r"routed_execution_plan_(execution_index|layout)_mismatch"):
+        simulator.execute(
+            routed_execution_plan=broken_plan,
+            qubit_count=4,
+            pauli_terms=terms,
+            partitions=partitions,
+            virtual_node_mapping=mapping,
+        )
+
+
 def test_request_rejects_more_than_ten_atoms_before_execution(authenticated_client):
     client, headers, _ = authenticated_client
     _override_service(DerivedElectronicStructureAdapter())
@@ -680,3 +822,97 @@ def test_openapi_exposes_success_and_failure_contracts():
     assert history_operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "/MoleculeWorkflowHistoryResponse"
     )
+
+    capabilities = app.openapi()["paths"]["/api/molecule-workflows/capabilities"]["get"]
+    assert capabilities["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/MoleculeWorkflowCapabilitiesResponse"
+    )
+
+
+def test_capabilities_are_authenticated_and_expose_virtual_only_contract(authenticated_client):
+    client, headers, _ = authenticated_client
+    assert client.get("/api/molecule-workflows/capabilities").status_code == 401
+    response = client.get("/api/molecule-workflows/capabilities", headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["contract_version"] == "2.0"
+    assert result["is_real_qpu"] is False
+    assert result["execution_modes"] == ["logical_virtual_qpu"]
+    assert result["routing_methods"] == ["shortest_path_swap"]
+
+
+def test_default_product_mode_does_not_publish_legacy_platform_routes():
+    paths = app.openapi()["paths"]
+    assert "/api/platform/workflows" not in paths
+    assert "/api/molecule-workflows" in paths
+
+
+def test_get_remains_compatible_with_persisted_pre_v2_workflow(authenticated_client):
+    client, headers, user_id = authenticated_client
+    created = _submit_workflow(client, headers, "H2", converged=True, key="legacy-v1-result")
+    database = SessionLocal()
+    record = database.query(MoleculeWorkflowRecord).filter(
+        MoleculeWorkflowRecord.workflow_id == created["workflow_id"],
+        MoleculeWorkflowRecord.user_id == user_id,
+    ).one()
+    legacy_result = dict(record.result_json)
+    legacy_result.pop("contract_version")
+    legacy_distribution = dict(legacy_result["distribution"])
+    for key in (
+            "inter_qpu_topology",
+            "partition_chip_routing",
+            "two_qubit_routing_evidence",
+            "routed_execution_plan",
+            "original_two_qubit_operation_count",
+            "routed_two_qubit_operation_count",
+            "intra_chip_routing_cost",
+            "actual_routed_plan_consumption",
+            "final_logical_to_physical_layout",
+        ):
+        legacy_distribution.pop(key)
+    legacy_result["distribution"] = legacy_distribution
+    record.result_json = legacy_result
+    database.commit()
+    database.close()
+
+    restored = client.get(f"/api/molecule-workflows/{created['workflow_id']}", headers=headers)
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["contract_version"] is None
+    assert restored.json()["distribution"]["partition_chip_routing"] is None
+
+
+@pytest.mark.parametrize(
+    ("virtual_qpus", "expected_code"),
+    [
+        (
+            [
+                {"virtual_qpu_id": "T1", "physical_qubit_count": 1, "physical_coupling_map": []},
+                {"virtual_qpu_id": "T2", "physical_qubit_count": 4, "physical_coupling_map": [{"source": 2, "target": 3}]},
+            ],
+            "physical_qubit_insufficient",
+        ),
+        (
+            [
+                {"virtual_qpu_id": "T1", "physical_qubit_count": 3, "physical_coupling_map": [{"source": 0, "target": 2}]},
+                {"virtual_qpu_id": "T2", "physical_qubit_count": 4, "physical_coupling_map": [{"source": 2, "target": 3}]},
+            ],
+            "physical_coupling_disconnected",
+        ),
+    ],
+)
+def test_workflow_returns_422_when_physical_chip_cannot_route(authenticated_client, virtual_qpus, expected_code):
+    client, headers, _ = authenticated_client
+    _override_service(DerivedElectronicStructureAdapter())
+    payload = _workflow_payload("H2")
+    payload["partition"].update(
+        {
+            "inter_qpu_topology": [{"source": 0, "target": 1}],
+            "virtual_qpus": virtual_qpus,
+            "initial_layout": "identity",
+            "routing_method": "shortest_path_swap",
+        }
+    )
+    response = client.post("/api/molecule-workflows", json=payload, headers=headers)
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["code"] == expected_code
+    assert response.json()["detail"]["stage"] == "chip_topology_routing"

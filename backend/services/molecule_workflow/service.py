@@ -24,6 +24,7 @@ from quantum_partitioning.chip_mapping import (
 )
 
 from .distributed_simulator import DistributedSimulationError, LogicalVirtualQPUSimulator
+from .chip_routing import ChipRoutingError, route_partition_circuits
 from .repository import MoleculeWorkflowRepository
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ STAGE_NAMES = (
     "vqe_optimization",
     "circuit_partitioning",
     "virtual_node_mapping",
+    "chip_topology_routing",
     "logical_distributed_simulation",
 )
 
@@ -209,15 +211,31 @@ class MoleculeWorkflowService:
                     "topology_edges": result["topology_edges"],
                 },
             )
+            routing_result = self._run_stage(
+                record,
+                stages,
+                "chip_topology_routing",
+                lambda: self._route_partition_circuits(
+                    vqe_result["qasm_content"],
+                    partition_result,
+                    mapping_result,
+                    request["partition"],
+                ),
+                lambda result: {
+                    "abstract_swap_count": result["intra_chip_routing_cost"]["abstract_swap_count"],
+                    "original_two_qubit_operation_count": result["original_two_qubit_operation_count"],
+                    "routed_two_qubit_operation_count": result["routed_two_qubit_operation_count"],
+                },
+            )
             distributed_result = self._run_stage(
                 record,
                 stages,
                 "logical_distributed_simulation",
                 lambda: self._run_distributed_simulation(
-                    vqe_result["qasm_content"],
                     mapped_hamiltonian,
                     partition_result,
                     mapping_result,
+                    routing_result,
                 ),
                 lambda result: {
                     "energy_hartree": result["energy_hartree"],
@@ -231,6 +249,7 @@ class MoleculeWorkflowService:
             validation_status, validation_issues = self._scientific_validation(vqe_result)
             result = {
                 "workflow_id": workflow_id,
+                "contract_version": "2.0",
                 "status": "completed",
                 "current_stage": "completed",
                 "validation_status": validation_status,
@@ -288,9 +307,18 @@ class MoleculeWorkflowService:
                     "virtual_node_mapping": mapping_result["virtual_node_mapping"],
                     "topology_edges": mapping_result["topology_edges"],
                     "mapping_cost": mapping_result["mapping_cost"],
+                    "inter_qpu_topology": mapping_result["inter_qpu_topology"],
+                    "partition_chip_routing": routing_result["partition_chip_routing"],
+                    "two_qubit_routing_evidence": routing_result["two_qubit_routing_evidence"],
+                    "routed_execution_plan": routing_result["routed_execution_plan"],
+                    "original_two_qubit_operation_count": routing_result["original_two_qubit_operation_count"],
+                    "routed_two_qubit_operation_count": routing_result["routed_two_qubit_operation_count"],
+                    "intra_chip_routing_cost": routing_result["intra_chip_routing_cost"],
                     "cross_partition_communication_count": distributed_result["cross_partition_communication_count"],
                     "communication_events": distributed_result["communication_events"],
                     "actual_partition_consumption": distributed_result["actual_partition_consumption"],
+                    "actual_routed_plan_consumption": distributed_result["actual_routed_plan_consumption"],
+                    "final_logical_to_physical_layout": distributed_result["final_logical_to_physical_layout"],
                     "simulation_strategy": distributed_result["simulation_strategy"],
                     "state_norm": distributed_result["state_norm"],
                 },
@@ -647,6 +675,7 @@ class MoleculeWorkflowService:
             "all_multi_qubit_gates": multi_qubit_gates,
             "partition_scheme": {
                 "method": "existing_greedy_partitioning_pipeline",
+                "strategy": "sequential_greedy",
                 "partition_count": len(scheme.partitions),
                 "partitions": [
                     {"partition_id": f"P{index + 1}", "qubits": partition}
@@ -661,7 +690,7 @@ class MoleculeWorkflowService:
     @staticmethod
     def _map_virtual_nodes(partition_result: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
         partition_count = len(partition_result["partitions"])
-        raw_edges = request.get("topology_edges") or [
+        raw_edges = request.get("inter_qpu_topology") or request.get("topology_edges") or [
             {"source": index, "target": index + 1} for index in range(partition_count - 1)
         ]
         edges = [(int(edge["source"]), int(edge["target"])) for edge in raw_edges]
@@ -702,17 +731,64 @@ class MoleculeWorkflowService:
             "topology_edges": [
                 {"source": source, "target": target} for source, target in edges
             ],
+            "inter_qpu_topology": [
+                {"source": source, "target": target} for source, target in edges
+            ],
         }
+
+    @staticmethod
+    def _route_partition_circuits(
+        qasm_content: str,
+        partition_result: dict[str, Any],
+        mapping_result: dict[str, Any],
+        request: dict[str, Any],
+    ) -> dict[str, Any]:
+        chips = request.get("virtual_qpus")
+        if chips is None:
+            chips = [
+                {
+                    "virtual_qpu_id": assignment["virtual_node_id"],
+                    "physical_qubit_count": len(assignment["qubits"]),
+                    "physical_coupling_map": [
+                        {"source": qubit, "target": qubit + 1}
+                        for qubit in range(max(0, len(assignment["qubits"]) - 1))
+                    ],
+                }
+                for assignment in mapping_result["virtual_node_mapping"]
+            ]
+        try:
+            return route_partition_circuits(
+                qasm_content=qasm_content,
+                partitions=partition_result["partitions"],
+                virtual_node_mapping=mapping_result["virtual_node_mapping"],
+                chips=chips,
+                initial_layout_method=request["initial_layout"],
+                routing_method=request["routing_method"],
+            )
+        except ChipRoutingError as exc:
+            code, _, detail = str(exc).partition(":")
+            messages = {
+                "physical_qubit_insufficient": "虚拟芯片物理量子比特数量不足，无法承载该逻辑分区。",
+                "physical_coupling_disconnected": "虚拟芯片物理耦合拓扑断连，无法路由该双比特门。",
+                "physical_chip_assignment_mismatch": "每个逻辑分区必须有且仅有一颗对应的虚拟芯片。",
+                "invalid_physical_coupling_map": "物理耦合拓扑包含无效边。",
+            }
+            raise MoleculeWorkflowError(
+                code,
+                messages.get(code, "芯片内拓扑映射或路由无法执行。") + (f" 节点：{detail}" if detail else ""),
+                "chip_topology_routing",
+                422,
+            ) from exc
 
     def _run_distributed_simulation(
         self,
-        qasm_content: str,
         mapped_hamiltonian: dict[str, Any],
         partition_result: dict[str, Any],
         mapping_result: dict[str, Any],
+        routing_result: dict[str, Any],
     ) -> dict[str, Any]:
         return self.distributed_simulator.execute(
-            qasm_content=qasm_content,
+            routed_execution_plan=routing_result["routed_execution_plan"],
             qubit_count=mapped_hamiltonian["qubit_count"],
             pauli_terms=mapped_hamiltonian["pauli_terms"],
             partitions=partition_result["partitions"],
