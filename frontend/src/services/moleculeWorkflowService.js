@@ -1,5 +1,6 @@
 import {
   createMoleculeWorkflowRequest,
+  fetchMoleculeWorkflowCapabilitiesRequest,
   fetchMoleculeWorkflowHistoryRequest,
   fetchMoleculeWorkflowRequest,
 } from '../api/moleculeWorkflowApi.js'
@@ -13,6 +14,7 @@ export const MOLECULE_STAGE_DEFINITIONS = [
   { id: 'vqe_optimization', label: 'VQE 优化' },
   { id: 'circuit_partitioning', label: '线路分区' },
   { id: 'virtual_node_mapping', label: '虚拟节点映射' },
+  { id: 'chip_topology_routing', label: '芯片拓扑映射与路由' },
   { id: 'logical_distributed_simulation', label: '逻辑分布式模拟' },
 ]
 
@@ -53,12 +55,51 @@ export function clonePreset(name = 'H2') {
     ansatzLayers: 1,
     maxIterations: 80,
     partitionCount: 2,
-    topologyEdges: [{ source: 0, target: 1 }],
+    partitionStrategy: 'sequential_greedy',
+    interQpuTopology: [{ source: 0, target: 1 }],
+    initialLayout: 'identity',
+    routingMethod: 'shortest_path_swap',
+    virtualQpus: [
+      { virtualQpuId: 'T1', physicalQubitCount: 2, physicalCouplingMap: [{ source: 0, target: 1 }] },
+      { virtualQpuId: 'T2', physicalQubitCount: 2, physicalCouplingMap: [{ source: 0, target: 1 }] },
+    ],
     geometry: preset.geometry.map(atom => ({
       element: atom.element,
       coordinates: [...atom.coordinates],
     })),
   }
+}
+
+function firstCapabilityValue(values, fallback = '') {
+  return Array.isArray(values) && values.length ? values[0] : fallback
+}
+
+function lineCouplingMap(qubitCount) {
+  return Array.from({ length: Math.max(Number(qubitCount) - 1, 0) }, (_, index) => ({
+    source: index,
+    target: index + 1,
+  }))
+}
+
+export function createCapabilityDrivenMoleculeForm(capabilities, presetName = 'H2') {
+  const form = clonePreset(presetName)
+  const partitionCount = Number(firstCapabilityValue(capabilities?.partition_counts, 2))
+  const physicalQubitCount = Number(capabilities?.max_mapped_qubits) || 2
+  form.basisSet = firstCapabilityValue(capabilities?.supported_basis_sets, '')
+  form.partitionCount = partitionCount
+  form.partitionStrategy = firstCapabilityValue(capabilities?.partition_strategies, '')
+  form.initialLayout = firstCapabilityValue(capabilities?.initial_layout_methods, '')
+  form.routingMethod = firstCapabilityValue(capabilities?.routing_methods, '')
+  form.interQpuTopology = Array.from({ length: Math.max(partitionCount - 1, 0) }, (_, index) => ({
+    source: index,
+    target: index + 1,
+  }))
+  form.virtualQpus = Array.from({ length: partitionCount }, (_, index) => ({
+    virtualQpuId: `T${index + 1}`,
+    physicalQubitCount,
+    physicalCouplingMap: lineCouplingMap(physicalQubitCount),
+  }))
+  return form
 }
 
 export function buildMoleculeWorkflowPayload(form) {
@@ -82,45 +123,106 @@ export function buildMoleculeWorkflowPayload(form) {
     },
     partition: {
       partition_count: Number(form.partitionCount),
-      topology_edges: form.topologyEdges.map(edge => ({
+      partition_strategy: form.partitionStrategy,
+      inter_qpu_topology: form.interQpuTopology.map(edge => ({
         source: Number(edge.source),
         target: Number(edge.target),
       })),
+      virtual_qpus: form.virtualQpus.map(chip => ({
+        virtual_qpu_id: chip.virtualQpuId,
+        physical_qubit_count: Number(chip.physicalQubitCount),
+        physical_coupling_map: chip.physicalCouplingMap.map(edge => ({
+          source: Number(edge.source),
+          target: Number(edge.target),
+        })),
+      })),
+      initial_layout: form.initialLayout,
+      routing_method: form.routingMethod,
     },
     execution_mode: 'logical_virtual_qpu',
   }
 }
 
-export function validateMoleculeWorkflowForm(form) {
+export function validateMoleculeWorkflowForm(form, capabilities = null) {
   const errors = []
-  if (!form.moleculeName?.trim() || form.moleculeName.trim().length > 120) errors.push('分子名称长度必须为 1–120 个字符。')
-  if (!Array.isArray(form.geometry) || form.geometry.length < 1 || form.geometry.length > 10) errors.push('原子数量必须为 1–10。')
+  if (!form.moleculeName?.trim()) errors.push('请填写分子名称。')
+  const maxAtomCount = Number(capabilities?.max_atom_count)
+  if (!Array.isArray(form.geometry) || form.geometry.length < 1) errors.push('至少需要一个原子。')
+  else if (Number.isFinite(maxAtomCount) && form.geometry.length > maxAtomCount) errors.push(`原子数量不能超过当前能力上限 ${maxAtomCount}。`)
   for (const [index, atom] of (form.geometry || []).entries()) {
     if (!/^[A-Z][a-z]?$/.test(atom.element?.trim() || '')) errors.push(`第 ${index + 1} 个原子的元素符号不合法。`)
+    else if (Array.isArray(capabilities?.supported_elements) && !capabilities.supported_elements.includes(atom.element.trim())) {
+      errors.push(`元素 ${atom.element.trim()} 不在当前能力范围。`)
+    }
     if (!Array.isArray(atom.coordinates) || atom.coordinates.length !== 3 || atom.coordinates.some(value => !Number.isFinite(Number(value)))) {
       errors.push(`第 ${index + 1} 个原子的三维坐标必须是有限数值。`)
     }
   }
-  if (!Number.isInteger(Number(form.charge)) || Number(form.charge) < -10 || Number(form.charge) > 10) errors.push('电荷必须是 -10–10 的整数。')
-  if (!Number.isInteger(Number(form.spinMultiplicity)) || Number(form.spinMultiplicity) < 1 || Number(form.spinMultiplicity) > 11) errors.push('自旋多重度必须是 1–11 的整数。')
-  if (!/^[A-Za-z0-9+*(),._-]{2,64}$/.test(form.basisSet?.trim() || '')) errors.push('基组格式不合法。')
-  if (!Number.isInteger(Number(form.activeSpaceOrbitals)) || Number(form.activeSpaceOrbitals) < 1 || Number(form.activeSpaceOrbitals) > 6) errors.push('活性空间轨道数必须是 1–6 的整数。')
-  if (!(Number(form.pauliCoefficientCutoff) > 0 && Number(form.pauliCoefficientCutoff) <= 0.01)) errors.push('Pauli 截断阈值必须大于 0 且不超过 0.01。')
-  if (!Number.isInteger(Number(form.ansatzLayers)) || Number(form.ansatzLayers) < 1 || Number(form.ansatzLayers) > 4) errors.push('VQE 层数必须是 1–4 的整数。')
-  if (!Number.isInteger(Number(form.maxIterations)) || Number(form.maxIterations) < 1 || Number(form.maxIterations) > 500) errors.push('VQE 迭代数必须是 1–500 的整数。')
+  if (!Number.isInteger(Number(form.charge))) errors.push('电荷必须是整数。')
+  if (!Number.isInteger(Number(form.spinMultiplicity)) || Number(form.spinMultiplicity) < 1) errors.push('自旋多重度必须是正整数。')
+  if (!form.basisSet?.trim()) errors.push('请选择基组。')
+  else if (Array.isArray(capabilities?.supported_basis_sets) && !capabilities.supported_basis_sets.includes(form.basisSet.trim())) {
+    errors.push(`基组 ${form.basisSet.trim()} 不在当前能力范围。`)
+  }
+  if (!Number.isInteger(Number(form.activeSpaceOrbitals)) || Number(form.activeSpaceOrbitals) < 1) errors.push('活性空间轨道数必须是正整数。')
+  if (!(Number(form.pauliCoefficientCutoff) > 0)) errors.push('Pauli 截断阈值必须大于 0。')
+  if (!Number.isInteger(Number(form.ansatzLayers)) || Number(form.ansatzLayers) < 1) errors.push('VQE 层数必须是正整数。')
+  if (!Number.isInteger(Number(form.maxIterations)) || Number(form.maxIterations) < 1) errors.push('VQE 迭代数必须是正整数。')
   const partitionCount = Number(form.partitionCount)
-  if (!Number.isInteger(partitionCount) || partitionCount < 2 || partitionCount > 3) errors.push('分区数量必须是 2 或 3。')
-  if (!Array.isArray(form.topologyEdges) || form.topologyEdges.length < 1 || form.topologyEdges.length > 3) errors.push('拓扑边数量必须为 1–3。')
-  for (const [index, edge] of (form.topologyEdges || []).entries()) {
+  if (!Number.isInteger(partitionCount)) errors.push('分区数量必须是整数。')
+  else if (Array.isArray(capabilities?.partition_counts) && !capabilities.partition_counts.includes(partitionCount)) {
+    errors.push(`分区数量 ${partitionCount} 不在当前能力范围。`)
+  }
+  if (!Array.isArray(form.interQpuTopology) || form.interQpuTopology.length < 1) errors.push('至少需要一条分区间拓扑边。')
+  for (const [index, edge] of (form.interQpuTopology || []).entries()) {
     const source = Number(edge.source)
     const target = Number(edge.target)
     if (!Number.isInteger(source) || !Number.isInteger(target) || source < 0 || target < 0 || source >= partitionCount || target >= partitionCount) {
-      errors.push(`第 ${index + 1} 条拓扑边的节点必须在 0–${Math.max(partitionCount - 1, 0)} 范围内。`)
+      errors.push(`第 ${index + 1} 条分区间拓扑边的节点必须在 0–${Math.max(partitionCount - 1, 0)} 范围内。`)
     } else if (source === target) {
       errors.push(`第 ${index + 1} 条拓扑边不允许自环。`)
     }
   }
+  if (!Array.isArray(form.virtualQpus) || form.virtualQpus.length !== partitionCount) errors.push('虚拟 QPU 数量必须与分区数量一致。')
+  for (const [chipIndex, chip] of (form.virtualQpus || []).entries()) {
+    const physicalQubitCount = Number(chip.physicalQubitCount)
+    const maxMappedQubits = Number(capabilities?.max_mapped_qubits)
+    if (!Number.isInteger(physicalQubitCount) || physicalQubitCount < 1 || (Number.isFinite(maxMappedQubits) && physicalQubitCount > maxMappedQubits)) {
+      errors.push(`虚拟 QPU T${chipIndex + 1} 的物理量子比特数不在当前能力范围。`)
+    }
+    for (const [edgeIndex, edge] of (chip.physicalCouplingMap || []).entries()) {
+      const source = Number(edge.source)
+      const target = Number(edge.target)
+      if (!Number.isInteger(source) || !Number.isInteger(target) || source < 0 || target < 0 || source >= physicalQubitCount || target >= physicalQubitCount || source === target) {
+        errors.push(`虚拟 QPU T${chipIndex + 1} 的第 ${edgeIndex + 1} 条物理耦合边不合法。`)
+      }
+    }
+  }
   return errors
+}
+
+export async function getMoleculeWorkflowCapabilities(options = {}) {
+  const request = options.request || fetchMoleculeWorkflowCapabilitiesRequest
+  const response = await request()
+  return response.data
+}
+
+export function normalizeMoleculeRoutingResult(workflow) {
+  const distribution = workflow?.distribution || {}
+  return {
+    partitions: distribution.partition_scheme?.partitions || [],
+    virtualNodeMapping: distribution.virtual_node_mapping || [],
+    interQpuTopology: distribution.inter_qpu_topology || distribution.topology_edges || [],
+    chips: distribution.partition_chip_routing || [],
+    evidence: distribution.two_qubit_routing_evidence || [],
+    routedPlan: distribution.routed_execution_plan || [],
+    routingCost: distribution.intra_chip_routing_cost || {},
+    communicationCount: distribution.cross_partition_communication_count ?? null,
+    communicationEvents: distribution.communication_events || [],
+    routedPlanConsumed: distribution.actual_routed_plan_consumption === true,
+    partitionPlanConsumed: distribution.actual_partition_consumption === true,
+    finalLayout: distribution.final_logical_to_physical_layout || {},
+  }
 }
 
 export function createIdempotencyKey() {

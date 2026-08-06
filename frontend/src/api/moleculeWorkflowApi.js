@@ -22,3 +22,9 @@ export function fetchMoleculeWorkflowHistoryRequest(params) {
     skipAuthRedirect: true,
   })
 }
+
+export function fetchMoleculeWorkflowCapabilitiesRequest() {
+  return apiClient.get('/molecule-workflows/capabilities', {
+    skipAuthRedirect: true,
+  })
+}

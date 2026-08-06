@@ -1,229 +1,72 @@
 <template>
-  <div class="app-shell">
-    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
-      <router-link to="/" class="brand">
-        <span class="brand-mark" aria-hidden="true">
-          <span class="orbit-ring ring-a"></span>
-          <span class="orbit-ring ring-b"></span>
-          <span class="orbit-core"></span>
-          <span class="orbit-node node-a"></span>
-          <span class="orbit-node node-b"></span>
-          <span class="orbit-node node-c"></span>
-        </span>
+  <div class="platform-shell">
+    <aside class="platform-sidebar" :class="{ compact: sidebarCollapsed }">
+      <router-link class="platform-brand" to="/">
+        <span class="brand-glyph" aria-hidden="true"><i></i><i></i><b></b></span>
         <span v-if="!sidebarCollapsed" class="brand-copy">
-          <strong>&#x91CF;&#x667A;&#x786B;&#x5149;</strong>
-          <small>Molecular Quantum Lab</small>
+          <strong>分子量子分布式计算平台</strong>
+          <small>MOLECULAR COMPUTE MESH</small>
         </span>
       </router-link>
 
-      <nav class="nav-group">
-        <router-link
-          v-for="item in navItems"
-          :key="item.path"
-          :to="item.path"
-          class="nav-item"
-          :class="{ active: isActive(item.path) }"
-        >
-          <span class="nav-icon">
-            <el-icon :size="18"><component :is="item.icon" /></el-icon>
-          </span>
-          <span v-if="!sidebarCollapsed" class="nav-body">
-            <strong v-html="item.title"></strong>
-            <small v-html="item.desc"></small>
-          </span>
+      <div v-if="!sidebarCollapsed" class="nav-caption">工作空间</div>
+      <nav class="platform-nav" aria-label="主导航">
+        <router-link v-for="item in navItems" :key="item.path" :to="item.path" :class="{ active: isActive(item.path) }">
+          <span class="nav-index">{{ item.index }}</span>
+          <span v-if="!sidebarCollapsed" class="nav-copy"><strong>{{ item.title }}</strong><small>{{ item.desc }}</small></span>
         </router-link>
       </nav>
 
-      <div class="sidebar-footer">
-        <div v-if="!sidebarCollapsed" class="user-block">
-          <span class="avatar">{{ identityInitial }}</span>
-          <span class="user-meta">
-            <strong>{{ identityLabel }}</strong>
-            <small v-html="identityRoleHtml"></small>
-          </span>
-        </div>
-        <button class="icon-btn" type="button" @click="sidebarCollapsed = !sidebarCollapsed">
-          <el-icon :size="16"><component :is="sidebarCollapsed ? 'Expand' : 'Fold'" /></el-icon>
+      <section v-if="!sidebarCollapsed" class="simulator-note">
+        <span class="status-light"></span>
+        <div><strong>逻辑执行环境</strong><p>模拟器 · 非真实 QPU</p></div>
+      </section>
+
+      <footer class="sidebar-account">
+        <span class="account-avatar">{{ identityInitial }}</span>
+        <span v-if="!sidebarCollapsed" class="account-copy"><strong>{{ identityLabel }}</strong><small>研究工作区</small></span>
+        <button class="sidebar-action" type="button" :aria-label="sidebarCollapsed ? '展开侧栏' : '收起侧栏'" @click="sidebarCollapsed = !sidebarCollapsed">
+          <el-icon><component :is="sidebarCollapsed ? 'Expand' : 'Fold'" /></el-icon>
         </button>
-        <router-link v-if="!isLoggedIn" class="icon-btn" to="/auth?tab=login">
-          <el-icon :size="16"><User /></el-icon>
-        </router-link>
-        <button v-else class="icon-btn danger" type="button" @click="handleLogout">
-          <el-icon :size="16"><SwitchButton /></el-icon>
+        <button v-if="isLoggedIn && !sidebarCollapsed" class="sidebar-action logout" type="button" aria-label="退出登录" @click="handleLogout">
+          <el-icon><SwitchButton /></el-icon>
         </button>
-      </div>
+      </footer>
     </aside>
 
-    <div class="main-area">
-      <header class="top-bar">
-        <div class="page-copy">
-          <span class="page-kicker">Research Console</span>
-          <h1>{{ pageTitle }}</h1>
-        </div>
-        <div v-if="showTopWorkflowContext" class="top-right">
-          <div class="status-pill">
-            <span class="status-dot" :class="topWorkflowStatus"></span>
-            <span v-html="workflowLabelHtml"></span>
-          </div>
-          <div v-if="topWorkflowId" class="task-pill">
-            <span>{{ topIdLabel }}</span>
-            <strong>{{ topWorkflowId.slice(0, 8) }}</strong>
-          </div>
+    <div class="platform-main">
+      <header class="platform-topbar">
+        <div><span>{{ route.meta?.eyebrow }}</span><h1>{{ route.meta?.title }}</h1></div>
+        <div class="topbar-contract">
+          <span>API CONTRACT</span><strong>Workflow v2</strong><i></i>
         </div>
       </header>
-
-      <main class="page-content">
-        <router-view />
-      </main>
-
-      <ChatWidget v-if="showFloatingChat" />
+      <main class="platform-content"><router-view /></main>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onUnmounted, provide, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { SwitchButton, User } from '@element-plus/icons-vue'
+import { SwitchButton } from '@element-plus/icons-vue'
 import { useAuth } from '../composables/useAuth'
-import { useScreeningWorkflow } from '../composables/useScreeningWorkflow'
-import { useStructureWorkflow } from '../composables/use-structure-workflow'
-import { useWorkflow } from '../composables/useWorkflow'
-import ChatWidget from '../components/ChatWidget.vue'
 
-const router = useRouter()
 const route = useRoute()
+const router = useRouter()
 const sidebarCollapsed = ref(false)
 const { isLoggedIn, username, logout } = useAuth()
-const { workflowState: shared, clearPolling } = useWorkflow()
-const { screeningState } = useScreeningWorkflow()
-const { structureState } = useStructureWorkflow()
-
-provide('shared', shared)
-
-const pageTitle = computed(() => route.meta?.title || 'Console')
-const identityLabel = computed(() => (isLoggedIn.value ? username.value : 'Guest'))
+const identityLabel = computed(() => isLoggedIn.value ? username.value : '访客')
 const identityInitial = computed(() => identityLabel.value.charAt(0).toUpperCase())
-const identityRoleHtml = computed(() =>
-  isLoggedIn.value ? '&#x7814;&#x7A76;&#x7528;&#x6237;' : '&#x672A;&#x767B;&#x5F55;'
-)
-const isScreeningRoute = computed(() => ['/app/screening', '/app/results'].includes(route.path))
-const isStructureRoute = computed(() =>
-  route.path === '/app/structure-workbench' || route.path.startsWith('/app/structure-workflows/')
-)
-const showTopWorkflowContext = computed(() => !(
-  route.path === '/app/molecules'
-  || route.path === '/app/molecule-workflows'
-  || route.path.startsWith('/app/molecule-workflows/')
-  || route.path === '/app/structure-workbench'
-  || route.path.startsWith('/app/research-benchmarks')
-  || route.path.startsWith('/app/structure-workflows/')
-))
-const showFloatingChat = computed(() => ![
-  '/app/molecules',
-  '/app/molecule-workflows',
-  '/app/screening',
-  '/app/results',
-  '/app/structure-workbench',
-  '/app/workbench',
-  '/app/knowledge',
-].includes(route.path) && !route.path.startsWith('/app/molecule-workflows/'))
-
-const workflowLabelMap = {
-  idle: '&#x5F85;&#x542F;&#x52A8;',
-  created: '&#x5DF2;&#x521B;&#x5EFA;',
-  validated: '&#x5DF2;&#x6821;&#x9A8C;',
-  screening: '&#x5019;&#x9009;&#x7B5B;&#x9009;',
-  chem_modeling: '&#x5316;&#x5B66;&#x5EFA;&#x6A21;',
-  quantum_encoding: '&#x91CF;&#x5B50;&#x7F16;&#x7801;',
-  distributed_compiling: '&#x5206;&#x5E03;&#x5F0F;&#x7F16;&#x8BD1;',
-  simulation_evaluating: '&#x4EFF;&#x771F;&#x8BC4;&#x4F30;',
-  scoring: '&#x7EFC;&#x5408;&#x8BC4;&#x5206;',
-  aggregating: '&#x7ED3;&#x679C;&#x805A;&#x5408;',
-  running: '&#x8FD0;&#x884C;&#x4E2D;',
-  partial_completed: '&#x90E8;&#x5206;&#x5B8C;&#x6210;',
-  completed: '&#x5DF2;&#x5B8C;&#x6210;',
-  cancelled: '&#x5DF2;&#x53D6;&#x6D88;',
-  failed: '&#x5931;&#x8D25;',
-  active_site_pending: '&#x5F85;&#x786E;&#x8BA4;&#x6D3B;&#x6027;&#x4F4D;&#x70B9;',
-  active_site_confirmed: '&#x6D3B;&#x6027;&#x4F4D;&#x70B9;&#x5DF2;&#x786E;&#x8BA4;',
-  adsorption_models_generated: '&#x521D;&#x59CB;&#x6784;&#x578B;&#x5DF2;&#x751F;&#x6210;',
-  geometry_optimized: '&#x51E0;&#x4F55;&#x5DF2;&#x51C6;&#x5907;',
-  literature_reproduction_input_selected: '&#x5DF2;&#x9009;&#x5B9A;&#x6587;&#x732E;&#x590D;&#x73B0;&#x8F93;&#x5165;',
-  literature_reproduction_geometry_ready: '&#x6587;&#x732E;&#x4F18;&#x5316;&#x51E0;&#x4F55;&#x5DF2;&#x5C31;&#x7EEA;',
-  quantum_region_built: '&#x91CF;&#x5B50;&#x533A;&#x5DF2;&#x5EFA;&#x7ACB;',
-  electronic_structure_confirmed: '&#x7535;&#x5B50;&#x7ED3;&#x6784;&#x5DF2;&#x786E;&#x8BA4;',
-  active_space_confirmed: '&#x6D3B;&#x6027;&#x7A7A;&#x95F4;&#x5DF2;&#x786E;&#x8BA4;',
-  needs_model_review: '&#x9700;&#x8981;&#x8865;&#x5145;&#x79D1;&#x7814;&#x5EFA;&#x6A21;&#x4FE1;&#x606F;',
-  validation_failed: '&#x7ED3;&#x6784;&#x6821;&#x9A8C;&#x5931;&#x8D25;',
-}
-
-const topWorkflowStatus = computed(() => {
-  if (isScreeningRoute.value) return screeningState.workflowStatus
-  if (isStructureRoute.value) return structureState.workflowStatus
-  return shared.workflowStatus
-})
-const topWorkflowId = computed(() => {
-  if (isScreeningRoute.value) return screeningState.screeningWorkflowId
-  if (isStructureRoute.value) return structureState.workflowId
-  return shared.taskId
-})
-const topIdLabel = computed(() => (isScreeningRoute.value || isStructureRoute.value ? 'Workflow' : 'Task'))
-const workflowLabelHtml = computed(() => workflowLabelMap[topWorkflowStatus.value] || workflowLabelMap.idle)
 
 const navItems = [
-  {
-    path: '/app/molecules',
-    title: '&#x5C0F;&#x5206;&#x5B50;&#x91CF;&#x5B50;&#x8BA1;&#x7B97;',
-    desc: 'Hamiltonian&#x3001;VQE&#x3001;&#x5206;&#x533A;&#x6A21;&#x62DF;',
-    icon: 'Cpu',
-  },
-  {
-    path: '/app/molecule-workflows',
-    title: '&#x8BA1;&#x7B97;&#x4EFB;&#x52A1;',
-    desc: 'Workflow&#x3001;&#x8D28;&#x91CF;&#x72B6;&#x6001;&#x3001;&#x80FD;&#x91CF;',
-    icon: 'Tickets',
-  },
-  {
-    path: '/app/screening',
-    title: '&#x7B5B;&#x9009;&#x5DE5;&#x4F5C;&#x53F0;',
-    desc: '&#x591A;&#x6750;&#x6599;&#x3001;&#x7C97;&#x7B5B;&#x3001;&#x6392;&#x884C;',
-    icon: 'DataBoard',
-  },
-  {
-    path: '/app/structure-workbench',
-    title: '&#x5316;&#x5B66;&#x7B5B;&#x9009;&#x4E0E;&#x8BA1;&#x7B97;',
-    desc: '&#x7ED3;&#x6784;&#x3001;&#x91CF;&#x5B50;&#x7EBF;&#x8DEF;&#x3001;&#x82AF;&#x7247;&#x6267;&#x884C;',
-    icon: 'Connection',
-  },
-  {
-    path: '/app/research-benchmarks',
-    title: '&#x516C;&#x5F00;&#x7ED3;&#x6784;&#x6848;&#x4F8B;',
-    desc: '&#x4ECE;&#x516C;&#x5F00;&#x6570;&#x636E;&#x9009;&#x62E9;&#x8F93;&#x5165;',
-    icon: 'CollectionTag',
-  },
-  {
-    path: '/app/results',
-    title: '&#x7ED3;&#x679C;',
-    desc: '&#x8BC4;&#x5206;&#x3001;&#x6307;&#x6807;&#x3001;&#x5DE5;&#x4EF6;',
-    icon: 'DataAnalysis',
-  },
-  {
-    path: '/app/knowledge',
-    title: '&#x77E5;&#x8BC6;&#x5E93;',
-    desc: '&#x6587;&#x6863;&#x3001;&#x5F15;&#x7528;&#x3001;&#x95EE;&#x7B54;',
-    icon: 'Collection',
-  },
-  {
-    path: '/app/history',
-    title: '&#x5386;&#x53F2;',
-    desc: '&#x5F52;&#x6863;&#x4E0E;&#x56DE;&#x770B;',
-    icon: 'Clock',
-  },
+  { index: '01', path: '/app/molecules', title: '新建分子计算', desc: '几何、VQE 与路由' },
+  { index: '02', path: '/app/molecule-workflows', title: '计算任务', desc: '状态、质量与结果' },
+  { index: '03', path: '/app/simulation-capabilities', title: '模拟能力说明', desc: '能力边界与执行语义' },
 ]
 
 function isActive(path) {
-  if (path === '/app/molecule-workflows' && route.path.startsWith('/app/molecule-workflows')) return true
+  if (path === '/app/molecule-workflows') return route.path.startsWith('/app/molecule-workflows')
   return route.path === path
 }
 
@@ -231,399 +74,46 @@ function handleLogout() {
   logout()
   router.push('/')
 }
-
-onUnmounted(() => {
-  clearPolling()
-})
 </script>
 
 <style scoped>
-.app-shell {
-  min-height: 100vh;
-  display: flex;
-  background:
-    radial-gradient(circle at 18% 4%, rgba(107, 216, 255, 0.1), transparent 30%),
-    linear-gradient(180deg, #020912 0%, #061523 100%);
-}
-
-.sidebar {
-  width: 292px;
-  min-width: 292px;
-  padding: 18px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  border-right: 1px solid var(--lz-line);
-  background:
-    linear-gradient(180deg, rgba(9, 22, 36, 0.9), rgba(5, 13, 23, 0.96)),
-    radial-gradient(circle at top, rgba(52, 211, 194, 0.14), transparent 36%);
-  transition: width 0.2s ease, min-width 0.2s ease;
-}
-
-.sidebar.collapsed {
-  width: 84px;
-  min-width: 84px;
-}
-
-.brand,
-.nav-item {
-  color: var(--lz-text);
-  text-decoration: none;
-}
-
-.brand {
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand-mark {
-  width: 46px;
-  height: 46px;
-  position: relative;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 48% 52%, rgba(52, 214, 255, 0.26), transparent 36%),
-    radial-gradient(circle at 28% 22%, rgba(242, 195, 91, 0.24), transparent 26%),
-    rgba(4, 10, 20, 0.82);
-  box-shadow:
-    0 0 0 1px rgba(120, 200, 255, 0.18),
-    0 0 26px rgba(30, 140, 255, 0.26),
-    inset 0 0 18px rgba(52, 214, 255, 0.18);
-}
-
-.orbit-ring,
-.orbit-core,
-.orbit-node {
-  position: absolute;
-  display: block;
-}
-
-.orbit-ring {
-  inset: 8px;
-  border: 1px solid rgba(52, 214, 255, 0.42);
-  border-radius: 50%;
-}
-
-.ring-a {
-  transform: rotate(-18deg) scaleX(0.72);
-}
-
-.ring-b {
-  border-color: rgba(242, 195, 91, 0.46);
-  transform: rotate(34deg) scaleX(0.66);
-}
-
-.orbit-core {
-  left: 50%;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--lz-cyan);
-  box-shadow: 0 0 14px rgba(52, 214, 255, 0.9);
-  transform: translate(-50%, -50%);
-}
-
-.orbit-node {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #fff4b8, var(--lz-gold) 58%, #7a4a10);
-  box-shadow: 0 0 12px rgba(242, 195, 91, 0.76);
-}
-
-.node-a {
-  left: 13px;
-  top: 11px;
-}
-
-.node-b {
-  right: 10px;
-  top: 18px;
-}
-
-.node-c {
-  left: 18px;
-  bottom: 10px;
-}
-
-.brand-copy,
-.nav-body,
-.user-meta {
-  min-width: 0;
-  display: grid;
-}
-
-.brand-copy strong {
-  font-family: var(--lz-display);
-  font-size: 1.05rem;
-}
-
-.brand-copy small,
-.nav-body small,
-.user-meta small {
-  color: var(--lz-muted);
-  font-size: 0.72rem;
-}
-
-.nav-group {
-  display: grid;
-  gap: 8px;
-}
-
-.nav-item {
-  min-height: 64px;
-  padding: 10px;
-  border: 1px solid transparent;
-  border-radius: var(--lz-radius);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
-}
-
-.nav-item:hover {
-  border-color: var(--lz-line);
-  background: rgba(255, 255, 255, 0.045);
-  transform: translateY(-1px);
-}
-
-.nav-item.active {
-  border-color: var(--lz-line-strong);
-  background:
-    linear-gradient(135deg, rgba(52, 211, 194, 0.14), rgba(22, 119, 255, 0.1)),
-    rgba(255, 255, 255, 0.04);
-}
-
-.nav-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--lz-radius);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--lz-cyan);
-}
-
-.nav-body strong {
-  color: var(--lz-text);
-  font-size: 0.92rem;
-}
-
-.sidebar-footer {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.user-block {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--lz-radius);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: rgba(107, 216, 255, 0.12);
-  color: var(--lz-cyan);
-  font-weight: 800;
-}
-
-.user-meta strong {
-  color: var(--lz-text);
-  font-size: 0.86rem;
-}
-
-.icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--lz-radius);
-  border: 1px solid var(--lz-line);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--lz-text);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.icon-btn.danger {
-  color: #ffb4a7;
-}
-
-.main-area {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.top-bar {
-  min-height: 84px;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--lz-line);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  background: rgba(3, 10, 18, 0.72);
-  backdrop-filter: blur(18px);
-}
-
-.page-kicker {
-  color: var(--lz-cyan);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.page-copy h1 {
-  margin: 5px 0 0;
-  color: var(--lz-text);
-  font-family: var(--lz-display);
-  font-size: 1.34rem;
-  letter-spacing: 0;
-}
-
-.top-right {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.status-pill,
-.task-pill {
-  min-height: 38px;
-  padding: 0 13px;
-  border: 1px solid var(--lz-line);
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(235, 244, 255, 0.84);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #9aa8ba;
-}
-
-.status-dot.completed,
-.status-dot.partial_completed {
-  background: #27d17f;
-}
-
-.status-dot.failed {
-  background: #ff705f;
-}
-
-.status-dot.validation_failed {
-  background: #ff705f;
-}
-
-.status-dot.needs_model_review,
-.status-dot.partial_result {
-  background: #f6b84a;
-}
-
-.status-dot.running,
-.status-dot.created,
-.status-dot.screening,
-.status-dot.chem_modeling,
-.status-dot.quantum_encoding,
-.status-dot.distributed_compiling,
-.status-dot.simulation_evaluating,
-.status-dot.scoring,
-.status-dot.aggregating {
-  background: var(--lz-gold);
-}
-
-.status-dot.active_site_pending,
-.status-dot.active_site_confirmed,
-.status-dot.adsorption_models_generated,
-.status-dot.geometry_optimized,
-.status-dot.quantum_region_built,
-.status-dot.electronic_structure_confirmed,
-.status-dot.active_space_confirmed {
-  background: var(--lz-gold);
-}
-
-.page-content {
-  flex: 1;
-  padding: 24px;
-}
-
-@media (max-width: 1100px) {
-  .sidebar {
-    width: 84px;
-    min-width: 84px;
-  }
-
-  .brand-copy,
-  .nav-body,
-  .user-block {
-    display: none;
-  }
-}
-
-@media (max-width: 720px) {
-  .app-shell {
-    display: block;
-  }
-
-  .sidebar {
-    width: 100%;
-    min-width: 0;
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-  }
-
-  .nav-group {
-    display: flex;
-  }
-
-  .sidebar-footer {
-    margin-top: 0;
-    margin-left: auto;
-  }
-
-  .top-bar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .top-bar,
-  .page-content {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-}
+.platform-shell { min-height: 100vh; display: flex; background: #f2f3ef; color: #17201d; }
+.platform-sidebar { width: 286px; min-width: 286px; min-height: 100vh; padding: 26px 18px 18px; display: flex; flex-direction: column; background: #101815; color: #eef2ed; transition: width .2s, min-width .2s; }
+.platform-sidebar.compact { width: 82px; min-width: 82px; }
+.platform-brand { min-height: 58px; padding: 0 7px; display: flex; align-items: center; gap: 13px; color: inherit; text-decoration: none; }
+.brand-glyph { width: 42px; height: 42px; position: relative; flex: 0 0 42px; border: 1px solid #89a69a; border-radius: 50%; }
+.brand-glyph i { position: absolute; inset: 10px 5px; border: 1px solid #b5f04c; border-radius: 50%; transform: rotate(35deg); }
+.brand-glyph i:nth-child(2) { transform: rotate(-35deg); }
+.brand-glyph b { position: absolute; left: 17px; top: 17px; width: 7px; height: 7px; border-radius: 50%; background: #b5f04c; }
+.brand-copy { min-width: 0; display: grid; gap: 4px; }
+.brand-copy strong { max-width: 184px; font-size: .92rem; line-height: 1.35; }
+.brand-copy small, .account-copy small { color: #839188; font-size: .62rem; letter-spacing: .11em; }
+.nav-caption { margin: 52px 10px 14px; color: #66736b; font-size: .68rem; letter-spacing: .16em; }
+.platform-nav { display: grid; gap: 5px; }
+.platform-nav a { min-height: 66px; padding: 10px 12px; border: 1px solid transparent; display: flex; align-items: center; gap: 14px; color: #a9b3ad; text-decoration: none; transition: .18s ease; }
+.platform-nav a:hover { color: #fff; border-color: #2b3933; }
+.platform-nav a.active { color: #fff; border-color: #3c4e46; background: #1a2521; }
+.nav-index { width: 30px; color: #b5f04c; font: 600 .68rem ui-monospace, monospace; }
+.nav-copy { min-width: 0; display: grid; gap: 5px; }
+.nav-copy strong { font-size: .88rem; }
+.nav-copy small { color: #738078; font-size: .71rem; }
+.simulator-note { margin-top: auto; padding: 17px 14px; border: 1px solid #34423c; display: flex; gap: 11px; align-items: flex-start; }
+.status-light { width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: #b5f04c; box-shadow: 0 0 0 4px rgba(181,240,76,.09); }
+.simulator-note strong { font-size: .75rem; }
+.simulator-note p { margin: 6px 0 0; color: #8d9992; font-size: .7rem; }
+.sidebar-account { margin-top: 18px; padding-top: 18px; border-top: 1px solid #29352f; display: flex; align-items: center; gap: 9px; }
+.account-avatar { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; background: #dce9df; color: #18221e; font-weight: 800; font-size: .78rem; }
+.account-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.account-copy strong { overflow: hidden; font-size: .78rem; text-overflow: ellipsis; }
+.sidebar-action { width: 34px; height: 34px; border: 1px solid #34423c; display: grid; place-items: center; background: transparent; color: #9ca8a1; cursor: pointer; }
+.sidebar-action.logout { color: #ee9f8a; }
+.platform-main { min-width: 0; flex: 1; }
+.platform-topbar { min-height: 92px; padding: 18px clamp(22px, 4vw, 54px); border-bottom: 1px solid #d7dbd4; display: flex; align-items: center; justify-content: space-between; background: rgba(247,248,244,.88); backdrop-filter: blur(14px); }
+.platform-topbar span { color: #758079; font-size: .66rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.platform-topbar h1 { margin: 5px 0 0; font-size: 1.28rem; letter-spacing: -.02em; }
+.topbar-contract { display: grid; grid-template-columns: auto auto 8px; gap: 9px; align-items: center; }
+.topbar-contract strong { font: 700 .72rem ui-monospace, monospace; }
+.topbar-contract i { width: 8px; height: 8px; border-radius: 50%; background: #6ca52e; }
+.platform-content { padding: 36px clamp(22px, 4vw, 54px) 70px; }
+@media (max-width: 760px) { .platform-sidebar { width: 82px; min-width: 82px; } .brand-copy, .nav-caption, .nav-copy, .simulator-note, .account-copy, .logout { display: none; } .platform-topbar { min-height: 76px; } .topbar-contract { display: none; } .platform-content { padding: 24px 18px 50px; } }
 </style>

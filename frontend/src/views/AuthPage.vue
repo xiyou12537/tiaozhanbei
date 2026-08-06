@@ -4,10 +4,10 @@
       <div class="auth-hero-inner">
         <div class="auth-copy">
           <span class="eyebrow">Account Access</span>
-          <h1>进入量智硫光系统</h1>
+          <h1>进入分子量子分布式计算平台</h1>
 <div class="auth-copy-actions">
             <router-link class="ghost-btn" to="/">返回首页</router-link>
-            <router-link class="text-link" to="/overview">查看项目介绍</router-link>
+            <router-link class="text-link" to="/app/simulation-capabilities">查看模拟能力</router-link>
           </div>
         </div>
 
@@ -44,7 +44,7 @@ function handleTabChange(tab) {
 
 function handleSuccess(payload) {
   if (payload?.mode !== 'login') return
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/app/screening'
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/app/molecules'
   router.push(redirect)
 }
 </script>

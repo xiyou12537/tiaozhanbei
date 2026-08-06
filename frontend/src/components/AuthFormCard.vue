@@ -5,7 +5,7 @@
     </button>
 
     <div class="auth-card-head">
-      <div class="auth-badge">LZ</div>
+      <div class="auth-badge">MQ</div>
       <div>
         <span class="auth-kicker">Account Center</span>
         <h2>{{ headingTitle }}</h2>
@@ -151,10 +151,10 @@ const loginError = ref('')
 const registerError = ref('')
 const successMessage = ref('')
 
-const headingTitle = computed(() => (activeTab.value === 'login' ? '登录量智硫光平台' : '创建平台账号'))
+const headingTitle = computed(() => (activeTab.value === 'login' ? '登录分子量子计算平台' : '创建平台账号'))
 const headingText = computed(() =>
   activeTab.value === 'login'
-    ? '登录后可进入候选材料筛选工作台、结果页、知识页与历史记录。'
+    ? '登录后可新建分子计算、查询 Workflow 任务并查看可审计的模拟结果。'
     : '创建账号后会回到登录页，请使用刚才的用户名和密码登录系统。'
 )
 const helperTitle = computed(() => (activeTab.value === 'login' ? '登录说明' : '注册说明'))

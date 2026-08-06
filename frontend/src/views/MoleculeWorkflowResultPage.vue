@@ -1,213 +1,88 @@
 <template>
   <div class="molecule-result-page">
-    <header class="result-head">
-      <div>
-        <span class="lz-kicker">Molecule workflow result</span>
-        <h2>{{ result?.molecule?.molecule_name || '分子计算结果' }}</h2>
-        <p class="mono">Workflow ID：{{ workflowId }}</p>
-      </div>
-      <div class="result-actions">
-        <el-tag effect="dark">模拟器</el-tag>
-        <el-tag type="info" effect="plain">虚拟节点逻辑分布式模拟</el-tag>
-        <el-tag v-if="result?.is_real_qpu === false" type="warning" effect="plain">非真实 QPU</el-tag>
-        <el-tag v-else-if="result" type="danger" effect="plain">QPU 标识异常</el-tag>
-        <el-button @click="loadWorkflow">刷新结果</el-button>
-        <router-link to="/app/molecules"><el-button type="primary">新建计算</el-button></router-link>
-      </div>
-    </header>
-
-    <el-alert v-if="loadError" type="error" :closable="false" show-icon>
-      <template #title>{{ loadError.title }}</template>
-      <p>{{ loadError.message }}</p>
-      <p v-if="loadError.stage">失败阶段：{{ stageLabel(loadError.stage) }}</p>
-      <p v-if="loadError.workflowId" class="mono">Workflow ID：{{ loadError.workflowId }}</p>
-      <router-link v-if="loadError.status === 401" to="/auth?tab=login"><el-button size="small">重新登录</el-button></router-link>
-    </el-alert>
-
-    <section v-if="isLoading" class="loading-panel" aria-live="polite">
-      <el-icon class="is-loading" :size="28"><Loading /></el-icon>
-      <strong>正在恢复 Workflow 结果</strong>
-    </section>
+    <section v-if="loading" class="result-loading" v-loading="true">正在恢复 Workflow 结果…</section>
+    <el-alert v-else-if="loadError" type="error" :closable="false" show-icon><template #title>{{ loadError.title }}</template><p>{{ loadError.message }}</p><p v-if="loadError.workflowId" class="mono">Workflow ID：{{ loadError.workflowId }}</p><el-button size="small" @click="loadWorkflow">重试</el-button></el-alert>
 
     <template v-else-if="result">
-      <section class="validation-summary result-panel" :class="`validation-${validationStatus || 'unknown'}`">
-        <div class="validation-copy">
-          <span class="section-index">Validation</span>
-          <h3>{{ validationLabel }}</h3>
-          <p>状态 completed 仅表示九阶段执行结束并已保存结果；科研有效性以 validation_status 为准。</p>
-        </div>
-        <el-tag :type="validationTagType" effect="dark" size="large">{{ validationLabel }}</el-tag>
-        <div v-if="result.validation_issues?.length" class="validation-issues">
-          <article v-for="issue in result.validation_issues" :key="`${issue.code}-${issue.stage}`">
-            <div><code>{{ issue.code }}</code><el-tag type="warning" effect="plain">{{ stageLabel(issue.stage) }}</el-tag></div>
-            <p>{{ issue.message }}</p>
-            <small>迭代次数：{{ issue.iteration_count }}</small>
-          </article>
-        </div>
+      <header class="result-head">
+        <div><span class="page-kicker">WORKFLOW EXECUTION EVIDENCE</span><h2>{{ result.molecule?.molecule_name || 'Workflow 结果' }}</h2><p class="mono">{{ result.workflow_id }}</p></div>
+        <div class="result-actions"><el-tag>模拟器</el-tag><el-tag type="info">虚拟节点逻辑分布式模拟</el-tag><el-tag v-if="result?.is_real_qpu === false" type="warning">非真实 QPU</el-tag><router-link to="/app/molecules"><el-button>新建计算</el-button></router-link></div>
+      </header>
+
+      <section class="validation-summary" :class="validationClass">
+        <div><span class="page-kicker">ENERGY & QUALITY STATUS</span><h3>{{ validationTitle }}</h3><p>{{ validationText }}</p></div>
+        <div class="status-pair"><span>执行状态</span><strong>{{ executionLabel }}</strong><span>质量状态</span><strong>{{ result.validation_status || '—' }}</strong></div>
       </section>
 
-      <section class="stage-panel result-panel">
-        <div class="section-head"><div><span class="section-index">01</span><h3>九阶段执行记录</h3></div><el-tag type="info">后端真实状态</el-tag></div>
-        <ol class="actual-stages">
-          <li v-for="(definition, index) in stageDefinitions" :key="definition.id" :class="stageRecord(definition.id)?.status || 'missing'">
-            <span>{{ String(index + 1).padStart(2, '0') }}</span>
-            <strong>{{ definition.label }}</strong>
-            <small>{{ statusText(stageRecord(definition.id)?.status) }}</small>
-            <em>{{ formatDuration(stageRecord(definition.id)?.duration_ms) }}</em>
-            <details v-if="stageRecord(definition.id)?.details && Object.keys(stageRecord(definition.id).details).length">
-              <summary>阶段详情</summary>
-              <pre>{{ formatDetails(stageRecord(definition.id).details) }}</pre>
-            </details>
-          </li>
-        </ol>
+      <section v-if="result.validation_issues?.length" class="result-panel validation-issues">
+        <div class="section-head"><div><span class="section-index">QUALITY ISSUES</span><h3>复核问题</h3></div></div>
+        <div class="issue-list"><article v-for="issue in result.validation_issues" :key="`${issue.code}-${issue.stage}`"><strong>{{ issue.code || '—' }}</strong><span>阶段：{{ stageLabel(issue.stage) }}</span><p>{{ issue.message || issue.description || '—' }}</p><small>迭代次数：{{ value(issue.iteration_count) }}</small></article></div>
+      </section>
+
+      <section class="result-panel stage-panel">
+        <div class="section-head"><div><span class="section-index">01 / PIPELINE</span><h3>执行阶段记录</h3></div><span>后端真实状态 · {{ result.stages?.length || 0 }} 个阶段</span></div>
+        <ol class="actual-stages"><li v-for="(stage,index) in result.stages || []" :key="stage.stage"><span>{{ String(index+1).padStart(2,'0') }}</span><strong>{{ stageLabel(stage.stage) }}</strong><small>{{ stage.status || '—' }} · {{ duration(stage.duration_ms) }}</small></li></ol>
       </section>
 
       <section class="result-panel">
-        <div class="section-head"><div><span class="section-index">02</span><h3>分子与固定几何</h3></div><el-tag effect="plain">未执行几何优化</el-tag></div>
-        <dl class="metrics-grid">
-          <div><dt>分子</dt><dd>{{ result.molecule.molecule_name }}</dd></div>
-          <div><dt>原子数</dt><dd>{{ result.molecule.atom_count }}</dd></div>
-          <div><dt>电荷</dt><dd>{{ result.molecule.charge }}</dd></div>
-          <div><dt>自旋多重度</dt><dd>{{ result.molecule.spin_multiplicity }}</dd></div>
-          <div><dt>基组</dt><dd>{{ result.molecule.basis_set }}</dd></div>
-          <div><dt>几何来源</dt><dd>输入固定几何</dd></div>
-        </dl>
-        <div class="data-table geometry-table">
-          <div class="table-row table-head"><span>元素</span><span>X (Å)</span><span>Y (Å)</span><span>Z (Å)</span></div>
-          <div v-for="(atom, index) in result.molecule.geometry" :key="index" class="table-row">
-            <strong>{{ atom.element }}</strong><span v-for="value in atom.coordinates_angstrom" :key="value">{{ formatNumber(value, 6) }}</span>
-          </div>
-        </div>
+        <div class="section-head"><div><span class="section-index">02 / MOLECULE</span><h3>分子与固定几何</h3></div><span>未执行几何优化</span></div>
+        <div class="molecule-summary"><article><span>分子</span><strong>{{ value(result.molecule?.molecule_name) }}</strong></article><article><span>电荷</span><strong>{{ value(result.molecule?.charge) }}</strong></article><article><span>自旋多重度</span><strong>{{ value(result.molecule?.spin_multiplicity) }}</strong></article><article><span>基组</span><strong>{{ value(result.molecule?.basis_set) }}</strong></article></div>
+        <div class="geometry-table table-grid"><div class="table-head"><span>#</span><span>元素</span><span>X / Å</span><span>Y / Å</span><span>Z / Å</span></div><div v-for="(atom,index) in result.molecule?.geometry || []" :key="index"><span>{{ index+1 }}</span><strong>{{ atom.element }}</strong><span v-for="coordinate in atom.coordinates_angstrom" :key="coordinate">{{ number(coordinate,6) }}</span></div></div>
       </section>
 
       <section class="result-panel">
-        <div class="section-head"><div><span class="section-index">03</span><h3>电子结构与活性空间</h3></div></div>
-        <dl class="metrics-grid">
-          <div class="accent-metric"><dt>HF 能量</dt><dd>{{ formatEnergy(result.hf_energy_hartree) }}</dd></div>
-          <div><dt>活性电子数</dt><dd>{{ result.active_space.active_electrons }}</dd></div>
-          <div><dt>活性轨道数</dt><dd>{{ result.active_space.active_orbitals }}</dd></div>
-          <div><dt>选择方法</dt><dd>{{ result.active_space.selection_method }}</dd></div>
-        </dl>
-        <div class="data-table orbital-table">
-          <div class="table-row table-head"><span>轨道索引</span><span>轨道能量 (Hartree)</span></div>
-          <div v-for="(orbitalIndex, index) in result.active_space.orbital_indices" :key="orbitalIndex" class="table-row">
-            <strong>{{ orbitalIndex }}</strong><span>{{ formatNumber(result.active_space.orbital_energies_hartree[index], 8) }}</span>
-          </div>
-        </div>
+        <div class="section-head"><div><span class="section-index">03 / ELECTRONIC STRUCTURE</span><h3>HF 能量与活性空间</h3></div></div>
+        <div class="metrics-grid"><article><span>HF 能量</span><strong>{{ energy(result.hf_energy_hartree) }}</strong><small>Hartree</small></article><article><span>活性电子</span><strong>{{ value(result.active_space?.active_electrons) }}</strong></article><article><span>活性轨道</span><strong>{{ value(result.active_space?.active_orbitals) }}</strong></article><article><span>选择方法</span><strong>{{ value(result.active_space?.selection_method) }}</strong></article></div>
+        <div class="orbital-list"><span v-for="(orbital,index) in result.active_space?.orbital_indices || []" :key="orbital"><b>MO {{ orbital }}</b>{{ energy(result.active_space?.orbital_energies_hartree?.[index]) }} Ha</span></div>
       </section>
 
       <section class="result-panel">
-        <div class="section-head"><div><span class="section-index">04</span><h3>Qubit Hamiltonian</h3></div><el-tag effect="plain">{{ result.hamiltonian.mapping_method }}</el-tag></div>
-        <dl class="metrics-grid">
-          <div><dt>量子比特数</dt><dd>{{ result.hamiltonian.qubit_count }}</dd></div>
-          <div><dt>映射前量子比特数</dt><dd>{{ result.hamiltonian.qubit_count_before_tapering }}</dd></div>
-          <div><dt>Pauli 项数</dt><dd>{{ result.hamiltonian.pauli_term_count }}</dd></div>
-          <div><dt>截断阈值</dt><dd>{{ result.hamiltonian.coefficient_cutoff }}</dd></div>
-        </dl>
-        <el-collapse>
-          <el-collapse-item :title="`展开 Pauli 项表（${result.hamiltonian.pauli_terms.length} 项）`" name="pauli-terms">
-            <div class="data-table pauli-table">
-              <div class="table-row table-head"><span>Pauli string</span><span>Coefficient</span></div>
-              <div v-for="(term, index) in result.hamiltonian.pauli_terms" :key="`${term.pauli_string}-${index}`" class="table-row">
-                <code>{{ term.pauli_string }}</code><span>{{ formatNumber(term.coefficient, 12) }}</span>
-              </div>
-            </div>
-          </el-collapse-item>
-        </el-collapse>
+        <div class="section-head"><div><span class="section-index">04 / HAMILTONIAN</span><h3>Qubit Hamiltonian</h3></div></div>
+        <div class="metrics-grid"><article><span>量子比特数</span><strong>{{ value(result.hamiltonian?.qubit_count) }}</strong></article><article><span>Pauli 项数</span><strong>{{ value(result.hamiltonian?.pauli_term_count) }}</strong></article><article><span>映射方法</span><strong>{{ value(result.hamiltonian?.mapping_method) }}</strong></article><article><span>截断阈值</span><strong>{{ value(result.hamiltonian?.coefficient_cutoff) }}</strong></article></div>
+        <el-collapse><el-collapse-item title="展开 Pauli 项表" name="pauli"><div class="pauli-table"><div><strong>Pauli string</strong><strong>Coefficient</strong></div><div v-for="(term,index) in result.hamiltonian?.pauli_terms || []" :key="index"><code>{{ term.pauli_string }}</code><span>{{ number(term.coefficient,12) }}</span></div></div></el-collapse-item></el-collapse>
       </section>
 
-      <section class="result-panel">
-        <div class="section-head"><div><span class="section-index">05</span><h3>VQE 优化与线路</h3></div><el-tag :type="result.vqe.converged ? 'success' : 'warning'">{{ result.vqe.converged ? '已收敛' : '未收敛' }}</el-tag></div>
-        <dl class="metrics-grid">
-          <div><dt>Ansatz</dt><dd>{{ result.vqe.ansatz }}</dd></div>
-          <div><dt>优化器</dt><dd>{{ result.vqe.optimizer }}</dd></div>
-          <div><dt>迭代次数</dt><dd>{{ result.vqe.iteration_count }}</dd></div>
-          <div><dt>初态</dt><dd>{{ result.vqe.initial_state }}</dd></div>
-        </dl>
-        <div v-if="optimizerDiagnostics" class="optimizer-diagnostics">
-          <div class="diagnostics-head">
-            <div><span class="section-index">Optimizer diagnostics</span><h4>{{ result.vqe.optimizer }} 终止诊断</h4></div>
-            <el-tag :type="optimizerDiagnostics.scipy_success ? 'success' : 'warning'">
-              {{ optimizerDiagnostics.scipy_success ? '优化器正常终止' : '优化器未成功终止' }}
-            </el-tag>
-          </div>
-          <dl class="diagnostics-grid">
-            <div><dt>优化器终止状态</dt><dd>Scipy status {{ optimizerDiagnostics.scipy_status }}</dd></div>
-            <div><dt>终止原因</dt><dd>{{ terminationReasonLabel(optimizerDiagnostics.termination_reason) }}</dd></div>
-            <div><dt>最佳迭代</dt><dd>{{ optimizerDiagnostics.best_iteration }}</dd></div>
-            <div><dt>目标函数评估次数</dt><dd>{{ optimizerDiagnostics.nfev }}</dd></div>
-            <div><dt>初始能量</dt><dd>{{ formatEnergy(optimizerDiagnostics.initial_energy_hartree) }}</dd></div>
-            <div><dt>最终能量</dt><dd>{{ formatEnergy(optimizerDiagnostics.final_energy_hartree) }}</dd></div>
-          </dl>
-          <div class="termination-message"><span>后端终止说明</span><code>{{ optimizerDiagnostics.scipy_message }}</code></div>
-          <div class="energy-changes">
-            <span>能量变化</span>
-            <code v-for="(change, index) in optimizerDiagnostics.recent_energy_changes_hartree" :key="index">{{ formatSignedEnergyChange(change) }}</code>
-            <small v-if="!optimizerDiagnostics.recent_energy_changes_hartree?.length">无近期变化记录</small>
-          </div>
-          <p class="diagnostic-note">目标函数评估次数由优化器报告，Powell 的该数值可以大于配置的最大迭代数，不表示参数超限。</p>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title"><strong>迭代能量曲线</strong><span>Energy (Hartree)</span></div>
-          <svg viewBox="0 0 720 240" role="img" aria-label="VQE 迭代能量曲线">
-            <line x1="48" y1="20" x2="48" y2="205" class="axis" /><line x1="48" y1="205" x2="700" y2="205" class="axis" />
-            <polyline :points="energyPolyline" class="energy-line" />
-            <circle v-for="point in energyPoints" :key="point.iteration" :cx="point.x" :cy="point.y" r="4"><title>迭代 {{ point.iteration }}：{{ point.energy }}</title></circle>
-            <text x="48" y="225">1</text><text x="665" y="225">{{ result.vqe.iteration_count }}</text>
-            <text x="54" y="35">{{ formatNumber(energyRange.max, 6) }}</text><text x="54" y="197">{{ formatNumber(energyRange.min, 6) }}</text>
-          </svg>
-        </div>
-        <el-collapse>
-          <el-collapse-item title="展开最终 OpenQASM 2.0" name="qasm"><pre class="qasm-block">{{ result.vqe.qasm }}</pre></el-collapse-item>
-        </el-collapse>
+      <section class="result-panel vqe-panel">
+        <div class="section-head"><div><span class="section-index">05 / VQE</span><h3>VQE 优化与线路</h3></div><span>{{ result.vqe?.converged ? '已收敛' : '未收敛' }}</span></div>
+        <div class="optimizer-banner"><div><span>优化器</span><strong>{{ value(result.vqe?.optimizer) }}</strong></div><div><span>优化器终止状态</span><strong>{{ optimizerStatus }}</strong></div><div><span>终止原因</span><strong>{{ value(result.vqe?.optimizer_diagnostics?.termination_reason) }}</strong></div><div><span>目标函数评估次数</span><strong>{{ value(result.vqe?.optimizer_diagnostics?.nfev) }}</strong></div><div><span>最佳迭代</span><strong>{{ value(result.vqe?.optimizer_diagnostics?.best_iteration) }}</strong></div><div><span>能量变化</span><strong>{{ recentEnergyChanges }}</strong></div></div>
+        <div class="vqe-layout"><div class="energy-history"><h4>迭代能量曲线</h4><svg v-if="historyPoints" viewBox="0 0 720 260" preserveAspectRatio="none" aria-label="VQE 迭代能量曲线"><line x1="40" y1="220" x2="700" y2="220"/><line x1="40" y1="25" x2="40" y2="220"/><polyline :points="historyPoints"/><circle v-for="point in historyDots" :key="point.iteration" :cx="point.x" :cy="point.y" r="4"><title>迭代 {{ point.iteration }}：{{ point.energy }}</title></circle></svg><p v-else>—</p></div><div class="qasm-block"><h4>最终 QASM</h4><pre>{{ result.vqe?.qasm || '—' }}</pre></div></div>
       </section>
 
-      <section class="result-panel">
-        <div class="section-head"><div><span class="section-index">06</span><h3>线路分区</h3></div></div>
-        <dl class="metrics-grid">
-          <div><dt>分区数量</dt><dd>{{ partition.partition_count }}</dd></div>
-          <div><dt>Teleportation</dt><dd>{{ partition.teleportations }}</dd></div>
-          <div><dt>全局门数量</dt><dd>{{ partition.global_gate_count }}</dd></div>
-          <div><dt>分区方法</dt><dd>{{ partition.method }}</dd></div>
-        </dl>
-        <div class="partition-cards">
-          <article v-for="item in partition.partitions" :key="item.partition_id"><span>{{ item.partition_id }}</span><strong>量子比特 {{ item.qubits.join(', ') }}</strong></article>
-        </div>
+      <section class="result-panel partition-panel">
+        <div class="section-head"><div><span class="section-index">06 / CIRCUIT PARTITION</span><h3>线路分区</h3></div><span>teleportation {{ value(result.distribution?.partition_scheme?.teleportations) }} · 全局门 {{ value(result.distribution?.partition_scheme?.global_gate_count) }}</span></div>
+        <div class="partition-grid"><article v-for="partition in routing.partitions" :key="partition.partition_id"><span>{{ partition.partition_id }}</span><strong>{{ qubits(partition.qubits) }}</strong><small>线路分区包含的逻辑量子比特</small></article></div>
       </section>
 
-      <section class="result-panel">
-        <div class="section-head"><div><span class="section-index">07</span><h3>虚拟节点映射与拓扑</h3></div><el-tag effect="plain">映射代价 {{ formatNumber(result.distribution.mapping_cost, 6) }}</el-tag></div>
-        <div class="mapping-layout">
-          <div>
-            <h4>虚拟节点映射</h4>
-            <div class="mapping-list"><article v-for="node in result.distribution.virtual_node_mapping" :key="node.virtual_node_id"><strong>{{ node.virtual_node_id }}</strong><span>{{ node.partition_id }}</span><small>q[{{ node.qubits.join(', ') }}]</small></article></div>
-          </div>
-          <div>
-            <h4>拓扑边</h4>
-            <div class="topology-list"><span v-for="(edge, index) in result.distribution.topology_edges" :key="index">节点 {{ edge.source }} ↔ 节点 {{ edge.target }}</span></div>
-          </div>
-        </div>
+      <section class="result-panel topology-panel inter-topology">
+        <div class="section-head"><div><span class="section-index">07 / INTER-QPU</span><h3>分区间虚拟 QPU 拓扑</h3></div><span>映射代价 {{ value(result.distribution?.mapping_cost) }}</span></div>
+        <p class="scope-note">该拓扑只连接虚拟 QPU 节点，用于分区映射与跨分区通信；不与芯片内物理耦合混画。</p>
+        <div class="virtual-mapping"><article v-for="item in routing.virtualNodeMapping" :key="item.virtual_node_id"><span>{{ item.partition_id }}</span><strong>{{ item.virtual_node_id }}</strong><small>{{ qubits(item.qubits) }}</small></article></div>
+        <div class="topology-edges"><span v-for="(edge,index) in routing.interQpuTopology" :key="index">T{{ edge.source+1 }} <b>—</b> T{{ edge.target+1 }}</span><span v-if="!routing.interQpuTopology.length">—</span></div>
       </section>
 
-      <section class="result-panel">
-        <div class="section-head"><div><span class="section-index">08</span><h3>跨分区通信</h3></div><el-tag effect="dark">{{ result.distribution.cross_partition_communication_count }} 次</el-tag></div>
-        <div v-if="result.distribution.communication_events.length" class="data-table communication-table">
-          <div class="table-row table-head"><span>门序号</span><span>门</span><span>控制 / 目标</span><span>源分区 / 节点</span><span>目标分区 / 节点</span></div>
-          <div v-for="event in result.distribution.communication_events" :key="event.gate_index" class="table-row">
-            <span>{{ event.gate_index }}</span><code>{{ event.gate }}</code><span>q{{ event.control_qubit }} → q{{ event.target_qubit }}</span><span>{{ event.source_partition_id }} / {{ event.source_virtual_node_id }}</span><span>{{ event.target_partition_id }} / {{ event.target_virtual_node_id }}</span>
-          </div>
-        </div>
-        <p v-else class="empty-copy">没有跨分区通信事件。</p>
+      <section class="result-panel chip-routing-panel">
+        <div class="section-head"><div><span class="section-index">08 / INTRA-CHIP ROUTING</span><h3>芯片内部物理耦合拓扑</h3></div><span>每颗虚拟 QPU 独立展示</span></div>
+        <p class="scope-note">以下每张图只表示单颗虚拟芯片的物理耦合边，以及该芯片内的 logical-to-physical 布局。</p>
+        <div class="chip-result-grid"><article v-for="chip in routing.chips" :key="chip.virtual_qpu_id" class="chip-result"><header><div><span>{{ chip.partition_id }}</span><h4>{{ chip.virtual_qpu_id }}</h4></div><strong>{{ value(chip.physical_qubit_count) }} physical qubits</strong></header><div class="physical-couplings"><span v-for="(edge,index) in chip.physical_coupling_map || []" :key="index">q{{ edge.source }} — q{{ edge.target }}</span><span v-if="!chip.physical_coupling_map?.length">—</span></div><h5>logical-to-physical 布局</h5><div class="layout-comparison"><div><span>初始</span><code>{{ layout(chip.logical_to_physical_initial) }}</code></div><b>→</b><div><span>最终</span><code>{{ layout(chip.logical_to_physical_final) }}</code></div></div></article><p v-if="!routing.chips.length">旧记录未提供芯片路由派生字段：—</p></div>
+      </section>
+
+      <section class="result-panel swap-panel">
+        <div class="section-head"><div><span class="section-index">09 / SWAP EVIDENCE</span><h3>SWAP 路径</h3></div></div>
+        <div class="routing-cost"><article><span>抽象 SWAP 数</span><strong>{{ value(routing.routingCost.abstract_swap_count) }}</strong></article><article><span>路由后双量子比特操作</span><strong>{{ value(routing.routingCost.routed_two_qubit_operation_count) }}</strong></article><article><span>原生双量子门等价开销</span><strong>{{ value(routing.routingCost.native_two_qubit_gate_equivalent_count) }}</strong></article></div>
+        <h4>芯片内路由成本</h4>
+        <div class="evidence-list"><article v-for="(evidence,index) in routing.evidence" :key="`${evidence.partition_id}-${evidence.gate_index}-${index}`"><header><strong>{{ evidence.partition_id }} / {{ evidence.virtual_qpu_id }}</strong><span :class="evidence.routing_status">{{ evidence.routing_status === 'routed' ? '执行 SWAP 路由' : '直接耦合' }}</span></header><div><span>逻辑门</span><code>{{ qubits(evidence.logical_qubits) }}</code><span>物理路径</span><code>{{ path(evidence.path) }}</code><span>SWAP</span><code>{{ swapPath(evidence.swap_path) }}</code></div></article><p v-if="!routing.evidence.length">—</p></div>
+        <div class="plan-consumption" :class="{ consumed:routing.routedPlanConsumed }"><span>{{ routing.routedPlanConsumed ? '✓' : '!' }}</span><div><strong>{{ routing.routedPlanConsumed ? '路由后计划已实际消费' : '路由后计划未确认消费' }}</strong><p>actual_routed_plan_consumption={{ String(result.distribution?.actual_routed_plan_consumption ?? '—') }}</p></div></div>
+        <el-collapse><el-collapse-item title="展开路由后执行计划" name="plan"><div class="plan-table"><div v-for="item in routing.routedPlan" :key="item.execution_index"><span>#{{ item.execution_index }}</span><strong>{{ item.operation }}</strong><code>{{ item.scope }}</code><span>{{ qubits(item.logical_qubits) }} → {{ qubits(item.physical_qubits,'q') }}</span><b>{{ item.physical_edge_is_valid === false ? '物理边无效' : '物理边有效' }}</b></div><p v-if="!routing.routedPlan.length">—</p></div></el-collapse-item></el-collapse>
+      </section>
+
+      <section class="result-panel communication-panel">
+        <div class="section-head"><div><span class="section-index">10 / COMMUNICATION</span><h3>跨分区通信</h3></div><span>{{ value(routing.communicationCount) }} 次</span></div>
+        <div class="communication-events"><article v-for="(event,index) in routing.communicationEvents" :key="index"><span>Gate {{ value(event.gate_index) }}</span><strong>{{ event.source_partition_id }} / {{ event.source_virtual_node_id }} → {{ event.target_partition_id }} / {{ event.target_virtual_node_id }}</strong><small>{{ event.gate }} q{{ event.control_qubit }} → q{{ event.target_qubit }}</small></article><p v-if="!routing.communicationEvents.length">—</p></div>
       </section>
 
       <section class="result-panel energy-panel">
-        <div class="section-head"><div><span class="section-index">09</span><h3>能量结果对比</h3></div></div>
-        <div class="energy-comparison">
-          <article><span>未分区基准能量</span><strong>{{ formatEnergy(result.energies.unpartitioned_benchmark_energy_hartree) }}</strong></article>
-          <article><span>分布式模拟能量</span><strong>{{ formatEnergy(result.energies.distributed_simulation_energy_hartree) }}</strong></article>
-          <article class="error-card"><span>绝对误差</span><strong>{{ formatEnergy(result.energies.absolute_error_hartree) }}</strong></article>
-        </div>
-        <p>执行后端：模拟器 · 能力级别：虚拟节点逻辑分布式模拟 · {{ result.distribution.is_real_qpu === false ? '非真实 QPU' : 'QPU 标识异常' }}</p>
+        <div class="section-head"><div><span class="section-index">11 / ENERGY</span><h3>能量与质量状态</h3></div></div>
+        <div class="energy-comparison"><article><span>未分区基准能量</span><strong>{{ energy(result.energies?.unpartitioned_benchmark_energy_hartree) }}</strong><small>Hartree</small></article><article><span>分布式模拟能量</span><strong>{{ energy(result.energies?.distributed_simulation_energy_hartree) }}</strong><small>Hartree</small></article><article><span>绝对误差</span><strong>{{ energy(result.energies?.absolute_error_hartree) }}</strong><small>Hartree</small></article></div>
       </section>
     </template>
   </div>
@@ -215,168 +90,32 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { Loading } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
-import { clearAuthSession } from '../services/authStorage'
-import {
-  MOLECULE_STAGE_DEFINITIONS,
-  getMoleculeWorkflow,
-  normalizeMoleculeWorkflowError,
-  stageLabel,
-} from '../services/moleculeWorkflowService'
+import { getMoleculeWorkflow, moleculeWorkflowExecutionMeta, normalizeMoleculeRoutingResult, normalizeMoleculeWorkflowError, stageLabel } from '../services/moleculeWorkflowService'
 import { saveRecentMoleculeWorkflow } from '../services/moleculeWorkflowStorage'
 
-const route = useRoute()
-const result = ref(null)
-const loadError = ref(null)
-const isLoading = ref(false)
-const stageDefinitions = MOLECULE_STAGE_DEFINITIONS
-const workflowId = computed(() => String(route.params.workflowId || ''))
-const partition = computed(() => result.value?.distribution?.partition_scheme || { partitions: [] })
-const validationStatus = computed(() => result.value?.validation_status || '')
-const validationLabel = computed(() => ({
-  passed: '计算通过',
-  needs_review: '计算完成，需要复核',
-})[validationStatus.value] || '计算完成，验证状态待确认')
-const validationTagType = computed(() => ({ passed: 'success', needs_review: 'warning' })[validationStatus.value] || 'info')
-const optimizerDiagnostics = computed(() => result.value?.vqe?.optimizer_diagnostics || null)
-
-const energyRange = computed(() => {
-  const values = (result.value?.vqe?.iteration_history || []).map(item => Number(item.energy_hartree)).filter(Number.isFinite)
-  if (!values.length) return { min: 0, max: 1 }
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  return min === max ? { min: min - 0.000001, max: max + 0.000001 } : { min, max }
-})
-
-const energyPoints = computed(() => {
-  const history = result.value?.vqe?.iteration_history || []
-  const width = 640
-  const height = 165
-  return history.map((item, index) => ({
-    iteration: item.iteration,
-    energy: item.energy_hartree,
-    x: 48 + (history.length === 1 ? width / 2 : index * width / (history.length - 1)),
-    y: 30 + (energyRange.value.max - item.energy_hartree) / (energyRange.value.max - energyRange.value.min) * height,
-  }))
-})
-const energyPolyline = computed(() => energyPoints.value.map(point => `${point.x},${point.y}`).join(' '))
-
-async function loadWorkflow() {
-  if (!workflowId.value) return
-  isLoading.value = true
-  loadError.value = null
-  try {
-    result.value = await getMoleculeWorkflow(workflowId.value)
-    saveRecentMoleculeWorkflow(result.value)
-  } catch (error) {
-    result.value = null
-    loadError.value = normalizeMoleculeWorkflowError(error)
-    if (loadError.value.status === 401) clearAuthSession()
-  } finally {
-    isLoading.value = false
-  }
-}
-
-function stageRecord(stageId) { return result.value?.stages?.find(stage => stage.stage === stageId) }
-function statusText(status) { return ({ completed: '已完成', failed: '失败', running: '执行中' })[status] || '无状态记录' }
-function formatDuration(value) { return Number.isFinite(Number(value)) ? `${formatNumber(value, 2)} ms` : '--' }
-function formatNumber(value, digits = 6) { return Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : '--' }
-function formatEnergy(value) { return `${formatNumber(value, 10)} Hartree` }
-function formatDetails(details) { return JSON.stringify(details, null, 2) }
-function formatSignedEnergyChange(value) {
-  if (!Number.isFinite(Number(value))) return '--'
-  return `${Number(value) >= 0 ? '+' : ''}${Number(value).toExponential(4)} Ha`
-}
-function terminationReasonLabel(reason) {
-  return ({
-    optimizer_reported_success: '优化器报告成功',
-    maximum_function_evaluations: '达到目标函数评估次数上限',
-    trust_region_radius_lower_bound: '信赖域半径达到下限',
-  })[reason] || reason || '--'
-}
-
-onMounted(loadWorkflow)
-watch(workflowId, loadWorkflow)
+const route=useRoute();const loading=ref(false);const result=ref(null);const loadError=ref(null)
+const routing=computed(()=>normalizeMoleculeRoutingResult(result.value))
+const executionLabel=computed(()=>moleculeWorkflowExecutionMeta(result.value?.status).label)
+const validationTitle=computed(()=>result.value?.validation_status==='passed'?'计算通过':result.value?.validation_status==='needs_review'?'计算完成，需要复核':'计算已完成，质量状态待确认')
+const validationText=computed(()=>result.value?.validation_status==='passed'?'Workflow 执行完成，服务端质量校验通过。':result.value?.validation_status==='needs_review'?'阶段执行与结果保存已经完成；完整结果可查看，但请按问题清单复核。':'执行完成不等于质量通过。')
+const validationClass=computed(()=>result.value?.validation_status==='passed'?'passed':result.value?.validation_status==='needs_review'?'review':'unknown')
+const optimizerStatus=computed(()=>{const d=result.value?.vqe?.optimizer_diagnostics;if(!d)return '—';return `${d.scipy_success?'已正常终止':'未正常终止'}${d.scipy_status===null||d.scipy_status===undefined?'':` · ${d.scipy_status}`}`})
+const recentEnergyChanges=computed(()=>{const changes=result.value?.vqe?.optimizer_diagnostics?.recent_energy_changes_hartree;return Array.isArray(changes)&&changes.length?changes.map(x=>number(x,10)).join(' · '):'—'})
+const historyDots=computed(()=>{const history=result.value?.vqe?.iteration_history||[];if(!history.length)return[];const energies=history.map(item=>Number(item.energy_hartree));const min=Math.min(...energies),max=Math.max(...energies),range=max-min||1;return history.map((item,index)=>({iteration:item.iteration,energy:item.energy_hartree,x:40+(history.length===1?330:index*660/(history.length-1)),y:25+(max-Number(item.energy_hartree))*195/range}))})
+const historyPoints=computed(()=>historyDots.value.map(point=>`${point.x},${point.y}`).join(' '))
+const value=input=>input===null||input===undefined||input===''?'—':String(input)
+const number=(input,digits=8)=>{const n=Number(input);return Number.isFinite(n)?n.toFixed(digits):'—'}
+const energy=input=>number(input,10)
+const duration=input=>{const n=Number(input);if(!Number.isFinite(n))return '—';return n<1000?`${Math.round(n)} ms`:`${(n/1000).toFixed(2)} s`}
+const qubits=(items,prefix='q')=>Array.isArray(items)&&items.length?items.map(item=>`${prefix}${item}`).join(' · '):'—'
+const path=items=>Array.isArray(items)&&items.length?items.map(item=>`q${item}`).join(' → '):'—'
+const swapPath=items=>Array.isArray(items)&&items.length?items.map(pair=>`q${pair[0]} ↔ q${pair[1]}`).join(' · '):'无'
+const layout=mapping=>mapping&&Object.keys(mapping).length?Object.entries(mapping).map(([logical,physical])=>`q${logical}→p${physical}`).join(' · '):'—'
+async function loadWorkflow(){loading.value=true;loadError.value=null;try{const data=await getMoleculeWorkflow(route.params.workflowId);result.value=data;saveRecentMoleculeWorkflow(data)}catch(error){loadError.value=normalizeMoleculeWorkflowError(error)}finally{loading.value=false}}
+watch(()=>route.params.workflowId,loadWorkflow);onMounted(loadWorkflow)
 </script>
 
 <style scoped>
-.molecule-result-page { display: grid; gap: 18px; }
-.result-head, .section-head, .result-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.result-head h2 { margin: 5px 0; font-size: clamp(1.6rem, 3vw, 2.25rem); }
-.result-head p { margin: 0; color: var(--lz-muted); overflow-wrap: anywhere; }
-.result-actions { flex-wrap: wrap; justify-content: flex-end; }
-.result-panel, .loading-panel { padding: 22px; border: 1px solid var(--lz-line); border-radius: 12px; background: rgba(8, 20, 36, .74); box-shadow: var(--lz-shadow); }
-.validation-summary { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
-.validation-summary.validation-passed { border-color: rgba(56, 243, 194, .38); }
-.validation-summary.validation-needs_review { border-color: rgba(242, 195, 91, .52); background: rgba(54, 39, 10, .5); }
-.validation-copy h3 { margin: 5px 0; }
-.validation-copy p { margin: 0; color: var(--lz-muted); line-height: 1.6; }
-.validation-issues { grid-column: 1 / -1; display: grid; gap: 10px; }
-.validation-issues article { padding: 14px; border: 1px solid rgba(242, 195, 91, .3); border-radius: 8px; background: rgba(242, 195, 91, .05); }
-.validation-issues article > div { display: flex; align-items: center; gap: 10px; }
-.validation-issues p { margin: 10px 0; line-height: 1.55; }
-.validation-issues small { color: var(--lz-muted); }
-.loading-panel { min-height: 220px; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--lz-cyan); }
-.section-head { margin-bottom: 16px; }
-.section-head > div { display: flex; align-items: center; gap: 10px; }
-.section-head h3 { margin: 0; }
-.section-index { color: var(--lz-cyan); font-size: .72rem; font-weight: 800; }
-.actual-stages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.actual-stages li { min-width: 0; padding: 13px; border: 1px solid var(--lz-line); border-radius: 8px; display: grid; grid-template-columns: auto 1fr auto; gap: 5px 9px; }
-.actual-stages li > span { color: var(--lz-cyan); font-size: .72rem; font-weight: 800; }
-.actual-stages small { color: var(--lz-muted); }
-.actual-stages em { color: var(--lz-gold); font-size: .72rem; font-style: normal; }
-.actual-stages details { grid-column: 1 / -1; }
-.actual-stages summary { color: var(--lz-muted); cursor: pointer; font-size: .72rem; }
-.actual-stages pre { max-height: 180px; overflow: auto; white-space: pre-wrap; color: var(--lz-muted); font-size: .68rem; }
-.actual-stages .completed { border-color: rgba(56, 243, 194, .3); }
-.actual-stages .failed { border-color: rgba(255, 138, 122, .55); }
-.metrics-grid { margin: 0 0 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.metrics-grid > div { min-width: 0; padding: 14px; border: 1px solid var(--lz-line); border-radius: 8px; background: rgba(255,255,255,.025); }
-.metrics-grid dt { color: var(--lz-muted); font-size: .76rem; }
-.metrics-grid dd { margin: 7px 0 0; color: var(--lz-text); font-weight: 800; overflow-wrap: anywhere; }
-.metrics-grid .accent-metric dd { color: var(--lz-gold); }
-.data-table { border: 1px solid var(--lz-line); border-radius: 8px; overflow-x: auto; }
-.table-row { min-width: 520px; padding: 10px 12px; display: grid; gap: 12px; border-top: 1px solid var(--lz-line); }
-.table-row:first-child { border-top: 0; }
-.table-head { color: var(--lz-muted); background: rgba(52,214,255,.05); font-size: .75rem; font-weight: 800; }
-.geometry-table .table-row { grid-template-columns: repeat(4, 1fr); }
-.orbital-table .table-row, .pauli-table .table-row { grid-template-columns: 1fr 2fr; }
-.communication-table .table-row { min-width: 760px; grid-template-columns: .6fr .5fr 1fr 1.2fr 1.2fr; }
-.chart-card { margin-bottom: 15px; padding: 15px; border: 1px solid var(--lz-line); border-radius: 8px; overflow-x: auto; }
-.chart-title { display: flex; justify-content: space-between; color: var(--lz-muted); }
-.chart-title strong { color: var(--lz-text); }
-.chart-card svg { min-width: 600px; width: 100%; height: 240px; }
-.chart-card .axis { stroke: rgba(147,168,189,.5); stroke-width: 1; }
-.chart-card .energy-line { fill: none; stroke: var(--lz-cyan); stroke-width: 3; }
-.chart-card circle { fill: var(--lz-gold); }
-.chart-card text { fill: var(--lz-muted); font-size: 12px; }
-.qasm-block { margin: 0; padding: 16px; max-height: 420px; overflow: auto; border-radius: 8px; color: #d6efff; background: #020711; line-height: 1.6; }
-.optimizer-diagnostics { margin-bottom: 15px; padding: 16px; border: 1px solid var(--lz-line); border-radius: 8px; background: rgba(52, 214, 255, .035); }
-.diagnostics-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.diagnostics-head h4 { margin: 4px 0 0; }
-.diagnostics-grid { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.diagnostics-grid div { padding: 11px; border: 1px solid var(--lz-line); border-radius: 7px; }
-.diagnostics-grid dt, .termination-message span, .energy-changes > span { color: var(--lz-muted); font-size: .75rem; }
-.diagnostics-grid dd { margin: 5px 0 0; font-weight: 750; overflow-wrap: anywhere; }
-.termination-message, .energy-changes { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.termination-message code, .energy-changes code { padding: 6px 9px; border-radius: 6px; background: rgba(0, 0, 0, .24); overflow-wrap: anywhere; }
-.diagnostic-note { margin: 12px 0 0; color: var(--lz-muted); font-size: .8rem; line-height: 1.55; }
-.partition-cards, .mapping-list { display: flex; flex-wrap: wrap; gap: 10px; }
-.partition-cards article, .mapping-list article { min-width: 160px; padding: 14px; border: 1px solid var(--lz-line); border-radius: 8px; display: grid; gap: 5px; }
-.partition-cards span, .mapping-list span, .mapping-list small { color: var(--lz-muted); }
-.mapping-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.mapping-layout h4 { margin: 0 0 12px; }
-.topology-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.topology-list span { padding: 9px 12px; border: 1px solid var(--lz-line); border-radius: 999px; }
-.energy-comparison { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.energy-comparison article { padding: 18px; border: 1px solid var(--lz-line); border-radius: 8px; display: grid; gap: 8px; }
-.energy-comparison span { color: var(--lz-muted); }
-.energy-comparison strong { color: var(--lz-cyan); font-size: 1.05rem; overflow-wrap: anywhere; }
-.energy-comparison .error-card strong { color: var(--lz-gold); }
-.energy-panel > p, .empty-copy { color: var(--lz-muted); }
-.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-@media (max-width: 1100px) { .actual-stages, .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 720px) { .result-head, .section-head, .diagnostics-head { align-items: flex-start; flex-direction: column; } .result-actions { justify-content: flex-start; } .validation-summary, .actual-stages, .metrics-grid, .diagnostics-grid, .mapping-layout, .energy-comparison { grid-template-columns: 1fr; } .validation-summary > .el-tag { justify-self: start; } .result-panel { padding: 16px; } }
+.molecule-result-page{display:grid;gap:22px}.result-loading{min-height:360px;padding:40px;border:1px solid #cad0c8;background:#fff}.result-head{min-height:180px;padding:34px;border:1px solid #c7cdc5;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;background:#e7eae3}.page-kicker,.section-index{color:#6e7b72;font:700 .66rem ui-monospace,monospace;letter-spacing:.12em}.result-head h2{margin:13px 0 8px;font-size:clamp(2.2rem,5vw,4.8rem);line-height:.9;letter-spacing:-.065em}.result-head p{margin:0;color:#68746d;font-size:.72rem}.result-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.validation-summary{padding:28px 32px;border:1px solid;display:flex;align-items:center;justify-content:space-between;gap:30px}.validation-summary.passed{border-color:#91ad77;background:#eaf0e4}.validation-summary.review{border-color:#d5ba6a;background:#f5edd4}.validation-summary.unknown{border-color:#bfc5bd;background:#f0f2ed}.validation-summary h3{margin:8px 0;font-size:1.65rem}.validation-summary p{margin:0;color:#657069;font-size:.8rem}.status-pair{display:grid;grid-template-columns:auto auto;gap:8px 18px;align-items:center}.status-pair span{color:#6d7871;font-size:.7rem}.status-pair strong{font:700 .72rem ui-monospace,monospace}.result-panel{padding:30px;border:1px solid #c9cec7;background:#fff}.section-head{margin-bottom:24px;display:flex;align-items:end;justify-content:space-between;gap:20px}.section-head h3{margin:8px 0 0;font-size:1.5rem;letter-spacing:-.03em}.section-head>span{color:#718078;font-size:.72rem}.actual-stages{padding:0;display:grid;grid-template-columns:repeat(3,1fr);list-style:none}.actual-stages li{min-height:92px;padding:17px;border:1px solid #e0e4de;display:grid;grid-template-columns:auto 1fr;gap:8px 13px}.actual-stages li>span{color:#72994e;font:700 .68rem ui-monospace,monospace}.actual-stages small{grid-column:2;color:#78847c}.molecule-summary,.metrics-grid,.routing-cost{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#d6dbd4}.molecule-summary article,.metrics-grid article,.routing-cost article{min-height:120px;padding:22px;background:#f4f6f2;display:grid;align-content:space-between}.molecule-summary span,.metrics-grid span,.routing-cost span{color:#758078;font-size:.7rem}.molecule-summary strong,.metrics-grid strong,.routing-cost strong{font:700 1rem ui-monospace,monospace;overflow-wrap:anywhere}.metrics-grid small{color:#718078}.table-grid{margin-top:20px;border:1px solid #dce0da}.table-grid>div{min-height:42px;padding:7px 14px;border-bottom:1px solid #e3e6e1;display:grid;grid-template-columns:50px 1fr repeat(3,1fr);align-items:center}.table-grid .table-head{background:#f2f4f0;color:#768078;font-size:.68rem}.orbital-list,.topology-edges,.physical-couplings{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}.orbital-list span,.topology-edges span,.physical-couplings span{padding:9px 12px;border:1px solid #d4dad2;background:#f5f6f3;font:600 .7rem ui-monospace,monospace}.orbital-list b{margin-right:12px;color:#688e44}.pauli-table>div{min-height:42px;padding:8px 14px;border-bottom:1px solid #e3e6e1;display:grid;grid-template-columns:1fr 1fr}.pauli-table code{color:#557d30}.optimizer-banner{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#d5dad3}.optimizer-banner>div{min-height:100px;padding:18px;background:#f4f5f2;display:grid;align-content:space-between}.optimizer-banner span{color:#748078;font-size:.68rem}.optimizer-banner strong{font:700 .76rem ui-monospace,monospace;overflow-wrap:anywhere}.vqe-layout{margin-top:20px;display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.energy-history,.qasm-block{min-width:0;padding:20px;border:1px solid #d5dad3}.energy-history h4,.qasm-block h4{margin:0 0 16px}.energy-history svg{width:100%;height:270px;background:#f5f6f3}.energy-history line{stroke:#aeb8af;stroke-width:1}.energy-history polyline{fill:none;stroke:#638f3d;stroke-width:3}.energy-history circle{fill:#17201d}.qasm-block pre{max-height:270px;margin:0;padding:16px;overflow:auto;background:#17201d;color:#cce6b2;font:500 .68rem/1.6 ui-monospace,monospace}.partition-grid,.virtual-mapping{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.partition-grid article,.virtual-mapping article{min-height:120px;padding:21px;border:1px solid #d4d9d2;display:grid;align-content:space-between}.partition-grid span,.virtual-mapping span{color:#789255;font:700 .67rem ui-monospace,monospace}.partition-grid strong,.virtual-mapping strong{font:700 .88rem ui-monospace,monospace}.partition-grid small,.virtual-mapping small{color:#748078}.scope-note{margin:-8px 0 22px;padding-left:12px;border-left:3px solid #87a966;color:#69756e;font-size:.78rem;line-height:1.7}.chip-result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.chip-result{padding:22px;border:1px solid #d5dad3;background:#f6f7f4}.chip-result header{display:flex;justify-content:space-between;gap:14px}.chip-result header span{color:#6c9546;font:700 .65rem ui-monospace,monospace}.chip-result h4{margin:6px 0 0;font-size:1.15rem}.chip-result header>strong{color:#718078;font:700 .68rem ui-monospace,monospace}.chip-result h5{margin:22px 0 10px}.layout-comparison{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}.layout-comparison>div{padding:12px;background:#fff}.layout-comparison span{display:block;margin-bottom:7px;color:#79847d;font-size:.66rem}.layout-comparison code{font-size:.68rem;line-height:1.6}.routing-cost{grid-template-columns:repeat(3,1fr)}.swap-panel>h4{margin:24px 0 12px}.evidence-list{display:grid;gap:10px}.evidence-list article{padding:17px;border:1px solid #d5dad3}.evidence-list header{display:flex;justify-content:space-between}.evidence-list header span{padding:4px 8px;background:#dfe5dc;font-size:.65rem}.evidence-list header span.routed{background:#f0e0ad;color:#775d12}.evidence-list article>div{margin-top:14px;display:grid;grid-template-columns:auto 1fr auto 1fr auto 1fr;gap:8px;align-items:center}.evidence-list article>div span{color:#78837d;font-size:.68rem}.evidence-list code{font-size:.68rem;overflow-wrap:anywhere}.plan-consumption{margin:22px 0;padding:18px;border:1px solid #c9826c;display:flex;gap:14px;align-items:center;background:#f8e8e2}.plan-consumption.consumed{border-color:#82a866;background:#e8f0e2}.plan-consumption>span{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#17201d;color:#fff}.plan-consumption strong{font-size:.86rem}.plan-consumption p{margin:5px 0 0;color:#6b776f;font:600 .66rem ui-monospace,monospace}.plan-table>div{min-height:44px;padding:8px;border-bottom:1px solid #e2e5e0;display:grid;grid-template-columns:55px 80px 100px 1fr 100px;gap:8px;align-items:center;font-size:.7rem}.plan-table b{color:#5f813e}.communication-events{display:grid;gap:9px}.communication-events article{padding:16px;border-left:3px solid #73994d;display:grid;grid-template-columns:90px 1fr auto;gap:14px;background:#f4f6f2;font-size:.74rem}.communication-events article span,.communication-events article small{color:#748078}.energy-comparison{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#cfd5cd}.energy-comparison article{min-height:170px;padding:25px;background:#f3f5f1;display:grid;align-content:space-between}.energy-comparison span{color:#718078;font-size:.72rem}.energy-comparison strong{font:700 1.25rem ui-monospace,monospace}.energy-comparison small{color:#718078}.issue-list{display:grid;gap:9px}.issue-list article{padding:16px;border-left:3px solid #d1ad43;background:#f5eed9;display:grid;grid-template-columns:160px 1fr auto;gap:10px}.issue-list p{margin:0}.issue-list small{color:#756725}.mono{font-family:ui-monospace,monospace}@media(max-width:1100px){.molecule-summary,.metrics-grid{grid-template-columns:repeat(2,1fr)}.optimizer-banner{grid-template-columns:repeat(2,1fr)}.vqe-layout{grid-template-columns:1fr}.chip-result-grid{grid-template-columns:1fr}}@media(max-width:760px){.result-head,.validation-summary,.section-head{align-items:flex-start;flex-direction:column}.actual-stages,.partition-grid,.virtual-mapping,.routing-cost,.energy-comparison{grid-template-columns:1fr}.molecule-summary,.metrics-grid,.optimizer-banner{grid-template-columns:1fr}.result-panel{padding:20px}.evidence-list article>div{grid-template-columns:1fr}.plan-table>div{grid-template-columns:40px 60px 1fr}.plan-table>div span:nth-of-type(2),.plan-table b{grid-column:3}.communication-events article,.issue-list article{grid-template-columns:1fr}.layout-comparison{grid-template-columns:1fr}.layout-comparison>b{transform:rotate(90deg);justify-self:center}}
 </style>

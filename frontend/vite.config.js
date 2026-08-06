@@ -15,7 +15,6 @@ export default defineConfig({
         manualChunks: {
           'vendor-vue': ['vue', 'vue-router'],
           'vendor-element': ['element-plus', '@element-plus/icons-vue'],
-          'vendor-vis': ['vis-data', 'vis-network'],
           'vendor-utils': ['axios'],
         },
       },

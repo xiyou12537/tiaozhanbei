@@ -27,6 +27,7 @@
     { "stage": "vqe_optimization", "status": "completed", "started_at": "2026-08-05T01:00:02Z", "completed_at": "2026-08-05T01:00:04Z", "duration_ms": 2000, "details": { "converged": true } },
     { "stage": "circuit_partitioning", "status": "completed", "started_at": "2026-08-05T01:00:04Z", "completed_at": "2026-08-05T01:00:04Z", "duration_ms": 20, "details": { "partition_count": 2 } },
     { "stage": "virtual_node_mapping", "status": "completed", "started_at": "2026-08-05T01:00:04Z", "completed_at": "2026-08-05T01:00:04Z", "duration_ms": 20, "details": { "mapping_cost": 1 } },
+    { "stage": "chip_topology_routing", "status": "completed", "started_at": "2026-08-05T01:00:04Z", "completed_at": "2026-08-05T01:00:04Z", "duration_ms": 20, "details": { "routing_method": "shortest_path_swap", "abstract_swap_count": 0 } },
     { "stage": "logical_distributed_simulation", "status": "completed", "started_at": "2026-08-05T01:00:04Z", "completed_at": "2026-08-05T01:00:05Z", "duration_ms": 500, "details": { "energy_hartree": -1.12 } }
   ],
   "hf_energy_hartree": -1.1167,

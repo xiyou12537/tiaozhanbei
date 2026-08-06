@@ -191,7 +191,11 @@ test('小分子入口只展示服务端最近 5 条并提供全部任务入口',
   await page.route('**/api/molecule-workflows**', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify(historyResponse(serverItems, { page_size: 5, total: 6, total_pages: 2 })),
+    body: JSON.stringify(route.request().url().endsWith('/capabilities') ? {
+      contract_version: '2.0', supported_elements: ['H', 'Li', 'O'], supported_basis_sets: ['sto-3g'], max_atom_count: 10,
+      max_mapped_qubits: 12, partition_counts: [2, 3], partition_strategies: ['sequential_greedy'],
+      initial_layout_methods: ['identity'], routing_methods: ['shortest_path_swap'], execution_modes: ['logical_virtual_qpu'], is_real_qpu: false,
+    } : historyResponse(serverItems, { page_size: 5, total: 6, total_pages: 2 })),
   }))
   await page.goto('/app/molecules')
   await expect(page.locator('.recent-panel').getByText('服务端记录', { exact: true })).toBeVisible()

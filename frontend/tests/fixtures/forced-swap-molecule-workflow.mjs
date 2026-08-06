@@ -1,0 +1,70 @@
+import zeroSwapFixture from './zero-swap-molecule-workflow.mjs'
+
+export default {
+  ...zeroSwapFixture,
+  workflow_id: 'molwf_forced_swap_fixture',
+  distribution: {
+    ...zeroSwapFixture.distribution,
+    partition_chip_routing: [
+      {
+        ...zeroSwapFixture.distribution.partition_chip_routing[0],
+        physical_qubit_count: 3,
+        physical_coupling_map: [{ source: 0, target: 2 }, { source: 2, target: 1 }],
+        logical_to_physical_initial: { 0: 0, 1: 1 },
+        logical_to_physical_final: { 0: 2, 1: 1 },
+        routed_two_qubit_operation_count: 2,
+      },
+      zeroSwapFixture.distribution.partition_chip_routing[1],
+    ],
+    two_qubit_routing_evidence: [
+      {
+        partition_id: 'P1',
+        virtual_qpu_id: 'T1',
+        gate_index: 4,
+        gate: 'cx',
+        logical_qubits: [0, 1],
+        initial_physical_qubits: [0, 1],
+        final_physical_qubits: [2, 1],
+        routing_status: 'routed',
+        path: [0, 2, 1],
+        swap_positions: [0],
+        swap_path: [[0, 2]],
+      },
+    ],
+    routed_execution_plan: [
+      {
+        execution_index: 0,
+        original_gate_index: 4,
+        operation: 'swap',
+        scope: 'intra_qpu',
+        partition_ids: ['P1'],
+        virtual_qpu_ids: ['T1'],
+        logical_qubits: [0],
+        physical_qubits: [0, 2],
+        physical_edge_is_valid: true,
+        layout_before: { 0: 0, 1: 1 },
+        layout_after: { 0: 2, 1: 1 },
+      },
+      {
+        execution_index: 1,
+        original_gate_index: 4,
+        operation: 'cx',
+        scope: 'intra_qpu',
+        partition_ids: ['P1'],
+        virtual_qpu_ids: ['T1'],
+        logical_qubits: [0, 1],
+        physical_qubits: [2, 1],
+        physical_edge_is_valid: true,
+        layout_before: { 0: 2, 1: 1 },
+        layout_after: { 0: 2, 1: 1 },
+      },
+    ],
+    intra_chip_routing_cost: {
+      abstract_swap_count: 1,
+      routed_two_qubit_operation_count: 2,
+      native_two_qubit_gate_equivalent_count: 4,
+    },
+    final_logical_to_physical_layout: { 0: 2, 1: 1, 2: 0, 3: 1 },
+    actual_routed_plan_consumption: true,
+  },
+}

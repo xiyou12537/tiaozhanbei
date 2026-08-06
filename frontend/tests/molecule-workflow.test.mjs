@@ -34,12 +34,12 @@ test('表单限制覆盖原子、数值范围和拓扑边', () => {
   const form = clonePreset('H2')
   form.geometry[0].element = 'hydrogen'
   form.geometry[1].coordinates[2] = Number.NaN
-  form.activeSpaceOrbitals = 7
+  form.activeSpaceOrbitals = 0
   form.pauliCoefficientCutoff = 0
-  form.ansatzLayers = 5
-  form.maxIterations = 501
+  form.ansatzLayers = 0
+  form.maxIterations = 0
   form.partitionCount = 2
-  form.topologyEdges = [{ source: 1, target: 1 }]
+  form.interQpuTopology = [{ source: 1, target: 1 }]
   const errors = validateMoleculeWorkflowForm(form).join('\n')
   assert.match(errors, /元素符号不合法/)
   assert.match(errors, /三维坐标必须是有限数值/)
@@ -83,20 +83,23 @@ test('401、标准 422、业务 422 和 503 被转换为明确错误', () => {
   assert.equal(unavailable.workflowId, 'molwf_runtime')
 })
 
-test('H2 成功 Fixture 包含能量对比和九阶段真实结果', () => {
+test('H2 成功 Fixture 包含能量对比和十阶段真实结果', () => {
   assert.equal(fixture.molecule.molecule_name, 'H2')
-  assert.equal(fixture.stages.length, 9)
+  assert.equal(fixture.stages.length, 10)
   assert.deepEqual(fixture.stages.map(stage => stage.stage), MOLECULE_STAGE_DEFINITIONS.map(stage => stage.id))
+  assert.deepEqual(MOLECULE_STAGE_DEFINITIONS[8], { id: 'chip_topology_routing', label: '芯片拓扑映射与路由' })
   assert.equal(fixture.energies.unpartitioned_benchmark_energy_hartree, -1.12)
   assert.equal(fixture.energies.distributed_simulation_energy_hartree, -1.1199999999)
   assert.equal(fixture.energies.absolute_error_hartree, 0.0000000001)
 })
 
-test('页面渲染九阶段并严格标记模拟器能力边界', () => {
+test('等待页渲染十个预计阶段且结果页以后端 stages 数组为准', () => {
   for (const stage of MOLECULE_STAGE_DEFINITIONS) {
     assert.match(serviceSource, new RegExp(stage.label))
   }
-  assert.match(entrySource, /预计阶段/)
+  assert.match(entrySource, /十个预计阶段/)
+  assert.match(resultSource, /result\.stages\?\.length/)
+  assert.match(resultSource, /v-for="\(stage,index\) in result\.stages \|\| \[\]"/)
   assert.match(resultSource, /模拟器/)
   assert.match(resultSource, /虚拟节点逻辑分布式模拟/)
   assert.match(resultSource, /result\?\.is_real_qpu === false/)

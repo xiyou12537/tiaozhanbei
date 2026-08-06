@@ -1,342 +1,102 @@
 <template>
   <div class="molecule-entry-page">
     <header class="molecule-page-head">
-      <div>
-        <span class="lz-kicker">Molecule-to-distributed-simulation</span>
-        <h2>小分子量子计算</h2>
-        <p>从固定分子几何生成 Hamiltonian 与 VQE 线路，完成线路分区和虚拟节点逻辑分布式模拟。</p>
-      </div>
-      <div class="capability-badges" aria-label="执行能力说明">
-        <el-tag effect="dark">模拟器</el-tag>
-        <el-tag type="success" effect="plain">虚拟节点逻辑分布式模拟</el-tag>
-        <el-tag type="warning" effect="plain">非真实 QPU</el-tag>
-      </div>
+      <div><span class="page-kicker">CREATE MOLECULAR WORKFLOW</span><h2>新建分子计算</h2><p>分子量子分布式计算平台将固定几何转换为 Hamiltonian、VQE 线路、分区路由与可审计的模拟结果。</p></div>
+      <div class="capability-badges"><el-tag>模拟器</el-tag><el-tag type="info">虚拟节点逻辑分布式模拟</el-tag><el-tag type="warning">非真实 QPU</el-tag></div>
     </header>
 
-    <el-alert
-      v-if="requestError"
-      class="request-alert"
-      type="error"
-      :closable="false"
-      show-icon
-    >
-      <template #title>{{ requestError.title }}</template>
-      <p>{{ requestError.message }}</p>
+    <el-alert v-if="capabilityError" type="error" :closable="false" show-icon title="无法读取表单能力">
+      <p>{{ capabilityError }}</p><el-button size="small" :loading="capabilityLoading" @click="loadCapabilities">重试</el-button>
+    </el-alert>
+    <el-alert v-if="requestError" class="request-alert" type="error" :closable="false" show-icon>
+      <template #title>{{ requestError.title }}</template><p>{{ requestError.message }}</p>
       <p v-if="requestError.stage">失败阶段：{{ stageLabel(requestError.stage) }}</p>
       <p v-if="requestError.workflowId" class="mono">Workflow ID：{{ requestError.workflowId }}</p>
-      <div class="alert-actions">
-        <el-button v-if="requestError.retryable && retryContext" size="small" @click="retryNetworkRequest">使用原幂等 Key 重试</el-button>
-        <router-link v-if="requestError.status === 401" to="/auth?tab=login"><el-button size="small">重新登录</el-button></router-link>
-      </div>
+      <div class="alert-actions"><el-button v-if="requestError.retryable && retryContext" size="small" @click="retryNetworkRequest">使用原幂等 Key 重试</el-button><router-link v-if="requestError.status === 401" to="/auth?tab=login"><el-button size="small">重新登录</el-button></router-link></div>
     </el-alert>
 
     <section v-if="isSubmitting" class="calculation-state" aria-live="polite">
-      <div class="calculation-title">
-        <span class="running-indicator" aria-hidden="true"></span>
-        <div>
-          <strong>正在计算</strong>
-          <p>POST 为同步长请求。返回前仅展示预计阶段，不代表任何阶段已经完成。</p>
-        </div>
-      </div>
-      <ol class="estimated-stages">
-        <li v-for="(stage, index) in stageDefinitions" :key="stage.id">
-          <span>{{ String(index + 1).padStart(2, '0') }}</span>
-          <strong>{{ stage.label }}</strong>
-          <small>预计阶段</small>
-        </li>
-      </ol>
+      <div class="calculation-title"><span class="running-indicator"></span><div><strong>正在计算</strong><p>同步长请求返回前仅展示十个预计阶段，不代表任何阶段已经完成。</p></div></div>
+      <ol class="estimated-stages"><li v-for="(stage,index) in stageDefinitions" :key="stage.id"><span>{{ String(index+1).padStart(2,'0') }}</span><strong>{{ stage.label }}</strong><small>预计阶段</small></li></ol>
     </section>
 
-    <div v-else class="entry-layout">
-      <main class="molecule-form-panel">
-        <section class="preset-section">
-          <div>
-            <span class="section-label">预置分子</span>
-            <h3>选择起始几何</h3>
-          </div>
-          <el-radio-group v-model="selectedPreset" @change="applyPreset">
-            <el-radio-button value="H2">H₂</el-radio-button>
-            <el-radio-button value="LiH">LiH</el-radio-button>
-            <el-radio-button value="H2O">H₂O</el-radio-button>
-          </el-radio-group>
-        </section>
+    <section v-else-if="capabilityLoading && !capabilities" class="capability-loading" v-loading="true">正在从服务端加载表单能力…</section>
 
-        <el-form label-position="top" class="molecule-form" @submit.prevent>
-          <div class="form-grid four-columns">
-            <el-form-item label="分子名称" required><el-input v-model="form.moleculeName" maxlength="120" /></el-form-item>
-            <el-form-item label="电荷" required><el-input-number v-model="form.charge" :min="-10" :max="10" :step="1" /></el-form-item>
-            <el-form-item label="自旋多重度" required><el-input-number v-model="form.spinMultiplicity" :min="1" :max="11" :step="1" /></el-form-item>
-            <el-form-item label="基组" required><el-input v-model="form.basisSet" maxlength="64" placeholder="sto-3g" /></el-form-item>
-            <el-form-item label="活性空间轨道数" required><el-input-number v-model="form.activeSpaceOrbitals" :min="1" :max="6" /></el-form-item>
-            <el-form-item label="Pauli 截断阈值" required><el-input-number v-model="form.pauliCoefficientCutoff" :min="0.00000001" :max="0.01" :step="0.000001" :precision="8" /></el-form-item>
-            <el-form-item label="VQE 层数" required><el-input-number v-model="form.ansatzLayers" :min="1" :max="4" /></el-form-item>
-            <el-form-item label="VQE 迭代数" required><el-input-number v-model="form.maxIterations" :min="1" :max="500" /></el-form-item>
-          </div>
+    <div v-else-if="capabilities" class="entry-layout">
+      <main class="workflow-builder">
+        <div class="contract-bar"><span>能力契约 {{ capabilities.contract_version }}</span><span>元素 {{ capabilities.supported_elements.join(' · ') }}</span><span>最大 {{ capabilities.max_mapped_qubits }} Qubits</span><router-link to="/app/simulation-capabilities">完整说明 ↗</router-link></div>
+        <el-steps :active="activeStep" finish-status="success" align-center class="workflow-steps">
+          <el-step title="分子与几何"/><el-step title="电子结构 / VQE 参数"/><el-step title="分区、芯片拓扑和路由"/><el-step title="确认并执行"/>
+        </el-steps>
 
-          <section class="form-subsection">
-            <div class="subsection-head">
-              <div><span class="section-label">Fixed geometry</span><h3>原子与三维坐标（Å）</h3></div>
-              <el-button :disabled="form.geometry.length >= 10" @click="addAtom">添加原子</el-button>
-            </div>
-            <div class="atom-table" role="table" aria-label="原子与三维坐标">
-              <div class="atom-row atom-head" role="row"><span>元素</span><span>X</span><span>Y</span><span>Z</span><span>操作</span></div>
-              <div v-for="(atom, index) in form.geometry" :key="index" class="atom-row" role="row">
-                <el-input v-model="atom.element" :aria-label="`第 ${index + 1} 个原子元素`" maxlength="2" />
-                <el-input-number v-for="axis in [0, 1, 2]" :key="axis" v-model="atom.coordinates[axis]" :precision="6" :step="0.1" :aria-label="`第 ${index + 1} 个原子坐标 ${axis}`" />
-                <el-button type="danger" plain :disabled="form.geometry.length === 1" @click="removeAtom(index)">删除</el-button>
-              </div>
-            </div>
-            <p class="field-note">计算直接使用以上固定几何，不执行几何优化。</p>
+        <el-form label-position="top" @submit.prevent>
+          <section v-show="activeStep===0" class="step-panel">
+            <header class="step-head"><div><span>STEP 01</span><h3>分子与几何</h3><p>选择预置作为起点，或逐项编辑元素和三维坐标。</p></div><el-radio-group v-model="selectedPreset" @change="applyPreset"><el-radio-button value="H2">H₂</el-radio-button><el-radio-button value="LiH">LiH</el-radio-button><el-radio-button value="H2O">H₂O</el-radio-button></el-radio-group></header>
+            <div class="form-grid four"><el-form-item label="分子名称"><el-input v-model="form.moleculeName"/></el-form-item><el-form-item label="电荷"><el-input-number v-model="form.charge"/></el-form-item><el-form-item label="自旋多重度"><el-input-number v-model="form.spinMultiplicity"/></el-form-item><el-form-item label="基组"><el-select v-model="form.basisSet"><el-option v-for="basis in capabilities.supported_basis_sets" :key="basis" :value="basis" :label="basis"/></el-select></el-form-item></div>
+            <div class="table-heading"><div><span>FIXED GEOMETRY / Å</span><h4>原子坐标</h4></div><el-button :disabled="form.geometry.length>=capabilities.max_atom_count" @click="addAtom">添加原子</el-button></div>
+            <div class="atom-editor"><div class="atom-row atom-head"><span>#</span><span>元素</span><span>X</span><span>Y</span><span>Z</span><span></span></div><div v-for="(atom,index) in form.geometry" :key="index" class="atom-row"><b>{{ String(index+1).padStart(2,'0') }}</b><el-select v-model="atom.element" :aria-label="`第 ${index+1} 个原子元素`"><el-option v-for="element in capabilities.supported_elements" :key="element" :label="element" :value="element"/></el-select><el-input-number v-for="axis in [0,1,2]" :key="axis" v-model="atom.coordinates[axis]" :precision="6" :step="0.1" :aria-label="`第 ${index+1} 个原子坐标 ${axis}`"/><el-button text type="danger" :disabled="form.geometry.length===1" @click="removeAtom(index)">删除</el-button></div></div>
+            <p class="field-note">固定几何会原样发送；当前流程不执行几何优化。原子数上限 {{ capabilities.max_atom_count }} 来自能力接口。</p>
           </section>
 
-          <section class="form-subsection partition-section">
-            <div class="subsection-head">
-              <div><span class="section-label">Partition &amp; topology</span><h3>分区与虚拟节点拓扑</h3></div>
-              <el-form-item label="分区数量" required><el-input-number v-model="form.partitionCount" :min="2" :max="3" @change="normalizeEdges" /></el-form-item>
-            </div>
-            <div class="topology-edges">
-              <div v-for="(edge, index) in form.topologyEdges" :key="index" class="edge-row">
-                <span>拓扑边 {{ index + 1 }}</span>
-                <el-input-number v-model="edge.source" :min="0" :max="form.partitionCount - 1" aria-label="源节点" />
-                <span>→</span>
-                <el-input-number v-model="edge.target" :min="0" :max="form.partitionCount - 1" aria-label="目标节点" />
-                <el-button type="danger" plain :disabled="form.topologyEdges.length === 1" @click="removeEdge(index)">删除</el-button>
-              </div>
-              <el-button :disabled="form.topologyEdges.length >= 3" @click="addEdge">添加拓扑边</el-button>
-            </div>
+          <section v-show="activeStep===1" class="step-panel">
+            <header class="step-head"><div><span>STEP 02</span><h3>电子结构 / VQE 参数</h3><p>定义活性空间、Hamiltonian 截断与变分优化预算。</p></div></header>
+            <div class="form-grid two"><el-form-item label="活性空间轨道数"><el-input-number v-model="form.activeSpaceOrbitals"/></el-form-item><el-form-item label="Pauli 截断阈值"><el-input-number v-model="form.pauliCoefficientCutoff" :step="0.000001" :precision="8"/></el-form-item><el-form-item label="VQE 层数"><el-input-number v-model="form.ansatzLayers"/></el-form-item><el-form-item label="VQE 迭代数"><el-input-number v-model="form.maxIterations"/></el-form-item></div>
+            <div class="fixed-contract"><article><span>QUBIT MAPPING</span><strong>jordan_wigner</strong><p>统一映射方法，由 Workflow 契约固定。</p></article><article><span>EXECUTION MODE</span><strong>logical_virtual_qpu</strong><p>虚拟节点逻辑分布式模拟。</p></article></div>
+            <el-alert type="info" :closable="false" title="参数校验说明">服务端 capabilities 未声明的数值上限不在前端伪造；提交时仍由统一 Workflow Schema 执行最终校验。</el-alert>
           </section>
 
-          <el-alert v-if="validationErrors.length" type="error" :closable="false" show-icon title="请修正以下字段">
-            <ul><li v-for="message in validationErrors" :key="message">{{ message }}</li></ul>
-          </el-alert>
+          <section v-show="activeStep===2" class="step-panel routing-step">
+            <header class="step-head"><div><span>STEP 03</span><h3>分区、芯片拓扑和路由</h3><p>分区间连线与芯片内部物理耦合分别配置、分别展示。</p></div></header>
+            <div class="form-grid three"><el-form-item label="分区数量"><el-select v-model="form.partitionCount" @change="syncPartitionModel"><el-option v-for="count in capabilities.partition_counts" :key="count" :value="count" :label="`${count} 个分区`"/></el-select></el-form-item><el-form-item label="分区策略"><el-select v-model="form.partitionStrategy"><el-option v-for="item in capabilities.partition_strategies" :key="item" :label="item" :value="item"/></el-select></el-form-item><el-form-item label="初始布局 / 路由"><div class="method-pair"><strong>{{ form.initialLayout }}</strong><span>+</span><strong>{{ form.routingMethod }}</strong></div></el-form-item></div>
 
-          <div class="fixed-contract">
-            <div><span>Hamiltonian 映射</span><strong>jordan_wigner</strong></div>
-            <div><span>执行模式</span><strong>logical_virtual_qpu</strong></div>
-            <div><span>能力边界</span><strong>模拟器 · 非真实 QPU</strong></div>
-          </div>
-          <div class="submit-row">
-            <p>新任务会生成独立 Idempotency-Key；网络重试复用该 Key。</p>
-            <el-button type="primary" size="large" :loading="isSubmitting" :disabled="isSubmitting" @click="startNewWorkflow">开始计算</el-button>
-          </div>
+            <section class="topology-editor inter-qpu-editor"><header><div><span>INTER-QPU TOPOLOGY</span><h4>分区间虚拟 QPU 拓扑</h4><p>只描述虚拟节点之间的连接，不代表芯片内物理耦合。</p></div><el-button @click="addInterEdge">添加边</el-button></header><div class="edge-list"><div v-for="(edge,index) in form.interQpuTopology" :key="index" class="edge-row"><span>虚拟边 {{ index+1 }}</span><el-input-number v-model="edge.source" :min="0" :max="form.partitionCount-1"/><b>—</b><el-input-number v-model="edge.target" :min="0" :max="form.partitionCount-1"/><el-button text type="danger" :disabled="form.interQpuTopology.length===1" @click="form.interQpuTopology.splice(index,1)">删除</el-button></div></div></section>
+
+            <section class="chip-editor"><header><span>INTRA-CHIP PHYSICAL COUPLING</span><h4>芯片内部物理耦合拓扑</h4><p>每个分区映射到一颗虚拟 QPU；每颗芯片独立维护物理比特和耦合边。</p></header><div class="chip-grid"><article v-for="(chip,chipIndex) in form.virtualQpus" :key="chip.virtualQpuId" class="chip-card"><div class="chip-head"><div><span>PARTITION P{{ chipIndex+1 }}</span><h5>{{ chip.virtualQpuId }}</h5></div><el-form-item label="物理 Qubits"><el-input-number v-model="chip.physicalQubitCount" :min="1" :max="capabilities.max_mapped_qubits" @change="trimChipEdges(chip)"/></el-form-item></div><div class="edge-list physical"><div v-for="(edge,index) in chip.physicalCouplingMap" :key="index" class="edge-row"><span>耦合 {{ index+1 }}</span><el-input-number v-model="edge.source" :min="0" :max="chip.physicalQubitCount-1"/><b>—</b><el-input-number v-model="edge.target" :min="0" :max="chip.physicalQubitCount-1"/><el-button text type="danger" @click="chip.physicalCouplingMap.splice(index,1)">删除</el-button></div></div><el-button size="small" @click="addPhysicalEdge(chip)">添加物理耦合边</el-button></article></div></section>
+          </section>
+
+          <section v-show="activeStep===3" class="step-panel confirmation-step">
+            <header class="step-head"><div><span>STEP 04</span><h3>确认并执行</h3><p>检查分子、计算参数和两个拓扑作用域，再创建同步长任务。</p></div></header>
+            <div class="confirmation-grid"><article><span>MOLECULE</span><strong>{{ form.moleculeName }}</strong><p>{{ form.geometry.length }} atoms · charge {{ form.charge }} · spin {{ form.spinMultiplicity }} · {{ form.basisSet }}</p></article><article><span>VQE</span><strong>{{ form.ansatzLayers }} layers / {{ form.maxIterations }} iterations</strong><p>Active orbitals {{ form.activeSpaceOrbitals }} · cutoff {{ form.pauliCoefficientCutoff }}</p></article><article><span>PARTITIONS</span><strong>{{ form.partitionCount }} virtual QPUs</strong><p>{{ form.interQpuTopology.length }} 条分区间拓扑边</p></article><article><span>ROUTING</span><strong>{{ form.routingMethod }}</strong><p>{{ physicalEdgeCount }} 条芯片内物理耦合边</p></article></div>
+            <div class="execution-notice"><div><strong>模拟器</strong><span>虚拟节点逻辑分布式模拟</span><b>非真实 QPU</b></div><p>每次新任务生成独立 Idempotency-Key；网络重试复用同一个 Key。同步请求期间按钮保持禁用。</p></div>
+            <el-alert v-if="validationErrors.length" type="error" :closable="false" title="请修正以下字段"><ul><li v-for="message in validationErrors" :key="message">{{ message }}</li></ul></el-alert>
+          </section>
+
+          <footer class="step-actions"><el-button v-if="activeStep>0" @click="activeStep--">上一步</el-button><span>步骤 {{ activeStep+1 }} / 4</span><el-button v-if="activeStep<3" type="primary" @click="nextStep">下一步</el-button><el-button v-else type="primary" size="large" :disabled="isSubmitting" :loading="isSubmitting" @click="startNewWorkflow">开始计算</el-button></footer>
         </el-form>
       </main>
 
-      <aside class="recent-panel">
-        <div class="recent-head">
-          <div>
-            <span class="section-label">Workflow history</span>
-            <h3>最近任务</h3>
-          </div>
-          <el-tag v-if="recentSource === 'local'" type="warning" size="small" effect="plain">本机缓存</el-tag>
-          <el-tag v-else type="info" size="small" effect="plain">服务端记录</el-tag>
-        </div>
-        <p v-if="recentError" class="recent-error">{{ recentError }} <button type="button" @click="loadRecentWorkflows">重试</button></p>
-        <div v-if="recentLoading && !recentWorkflows.length" class="empty-recent">正在读取最近任务…</div>
-        <div v-if="recentWorkflows.length" class="recent-list">
-          <router-link v-for="item in recentWorkflows" :key="item.workflowId" :to="`/app/molecule-workflows/${item.workflowId}`">
-            <span class="recent-title">
-              <strong>{{ item.moleculeName }}</strong>
-              <el-tag v-if="item.validationStatus === 'passed'" size="small" type="success">计算通过</el-tag>
-              <el-tag v-else-if="item.validationStatus === 'needs_review'" size="small" type="warning">需要复核</el-tag>
-              <el-tag v-else size="small" type="info">待确认</el-tag>
-            </span>
-            <small class="mono">{{ item.workflowId }}</small>
-            <span>{{ formatTime(item.completedAt) }}</span>
-          </router-link>
-        </div>
-        <div v-else-if="!recentLoading" class="empty-recent">服务端暂无计算任务。</div>
-        <router-link class="all-tasks-link" to="/app/molecule-workflows">查看全部任务 <span aria-hidden="true">→</span></router-link>
-      </aside>
+      <aside class="recent-panel"><div class="recent-head"><div><span>RECENT WORKFLOWS</span><h3>最近任务</h3></div><el-tag v-if="recentSource==='local'" type="warning">本机缓存</el-tag><el-tag v-else type="info">服务端记录</el-tag></div><p v-if="recentError" class="recent-error">{{ recentError }} <button @click="loadRecentWorkflows">重试</button></p><div v-if="recentLoading&&!recentWorkflows.length" class="empty-recent">正在读取…</div><div class="recent-list"><router-link v-for="item in recentWorkflows" :key="item.workflowId" :to="`/app/molecule-workflows/${item.workflowId}`"><span><strong>{{ item.moleculeName }}</strong><el-tag v-if="item.validationStatus==='passed'" size="small" type="success">计算通过</el-tag><el-tag v-else-if="item.validationStatus==='needs_review'" size="small" type="warning">需要复核</el-tag></span><small class="mono">{{ item.workflowId }}</small></router-link></div><div v-if="!recentLoading&&!recentWorkflows.length" class="empty-recent">暂无任务。</div><router-link class="all-tasks-link" to="/app/molecule-workflows">查看全部任务 →</router-link></aside>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { clearAuthSession } from '../services/authStorage'
-import {
-  MOLECULE_STAGE_DEFINITIONS,
-  buildMoleculeWorkflowPayload,
-  canUseMoleculeWorkflowLocalFallback,
-  clonePreset,
-  createIdempotencyKey,
-  listMoleculeWorkflows,
-  normalizeMoleculeWorkflowError,
-  stageLabel,
-  submitMoleculeWorkflow,
-  validateMoleculeWorkflowForm,
-} from '../services/moleculeWorkflowService'
+import { MOLECULE_STAGE_DEFINITIONS, buildMoleculeWorkflowPayload, canUseMoleculeWorkflowLocalFallback, clonePreset, createCapabilityDrivenMoleculeForm, createIdempotencyKey, getMoleculeWorkflowCapabilities, listMoleculeWorkflows, normalizeMoleculeWorkflowError, stageLabel, submitMoleculeWorkflow, validateMoleculeWorkflowForm } from '../services/moleculeWorkflowService'
 import { readRecentMoleculeWorkflows, saveRecentMoleculeWorkflow } from '../services/moleculeWorkflowStorage'
 
-const router = useRouter()
-const selectedPreset = ref('H2')
-const form = reactive(clonePreset('H2'))
-const validationErrors = ref([])
-const requestError = ref(null)
-const isSubmitting = ref(false)
-const retryContext = ref(null)
-const recentWorkflows = ref([])
-const recentSource = ref('server')
-const recentLoading = ref(false)
-const recentError = ref('')
-const stageDefinitions = MOLECULE_STAGE_DEFINITIONS
+const router=useRouter(); const selectedPreset=ref('H2'); const activeStep=ref(0); const capabilities=ref(null); const capabilityLoading=ref(false); const capabilityError=ref(''); const form=reactive(clonePreset('H2')); const validationErrors=ref([]); const requestError=ref(null); const isSubmitting=ref(false); const retryContext=ref(null); const recentWorkflows=ref([]); const recentSource=ref('server'); const recentLoading=ref(false); const recentError=ref(''); const stageDefinitions=MOLECULE_STAGE_DEFINITIONS
+const physicalEdgeCount=computed(()=>form.virtualQpus.reduce((total,chip)=>total+chip.physicalCouplingMap.length,0))
 
-function toRecentViewItem(item) {
-  return {
-    workflowId: item.workflow_id,
-    moleculeName: item.molecule_name || '未命名分子',
-    validationStatus: item.validation_status || null,
-    completedAt: item.completed_at || item.created_at || null,
-  }
-}
-
-function localRecentViewItems() {
-  return readRecentMoleculeWorkflows().slice(0, 5)
-}
-
-async function loadRecentWorkflows() {
-  recentLoading.value = true
-  recentError.value = ''
-  try {
-    const response = await listMoleculeWorkflows({ page: 1, page_size: 5 })
-    recentWorkflows.value = (Array.isArray(response?.items) ? response.items : []).slice(0, 5).map(toRecentViewItem)
-    recentSource.value = 'server'
-  } catch (error) {
-    recentError.value = '最近任务接口暂不可用。'
-    if (!recentWorkflows.value.length && canUseMoleculeWorkflowLocalFallback(error)) {
-      recentWorkflows.value = localRecentViewItems()
-      recentSource.value = 'local'
-    }
-  } finally {
-    recentLoading.value = false
-  }
-}
-
-function replaceForm(next) {
-  for (const key of Object.keys(form)) delete form[key]
-  Object.assign(form, next)
-  validationErrors.value = []
-  requestError.value = null
-  retryContext.value = null
-}
-
-function applyPreset(name) {
-  replaceForm(clonePreset(name))
-}
-
-function addAtom() {
-  if (form.geometry.length < 10) form.geometry.push({ element: 'H', coordinates: [0, 0, 0] })
-}
-
-function removeAtom(index) {
-  if (form.geometry.length > 1) form.geometry.splice(index, 1)
-}
-
-function addEdge() {
-  if (form.topologyEdges.length < 3) form.topologyEdges.push({ source: 0, target: Math.min(1, form.partitionCount - 1) })
-}
-
-function removeEdge(index) {
-  if (form.topologyEdges.length > 1) form.topologyEdges.splice(index, 1)
-}
-
-function normalizeEdges() {
-  for (const edge of form.topologyEdges) {
-    edge.source = Math.min(edge.source, form.partitionCount - 1)
-    edge.target = Math.min(edge.target, form.partitionCount - 1)
-  }
-}
-
-async function performSubmission(payload, idempotencyKey) {
-  isSubmitting.value = true
-  requestError.value = null
-  try {
-    const result = await submitMoleculeWorkflow(payload, { idempotencyKey })
-    saveRecentMoleculeWorkflow(result.data)
-    retryContext.value = null
-    await router.push(`/app/molecule-workflows/${result.data.workflow_id}`)
-  } catch (error) {
-    requestError.value = normalizeMoleculeWorkflowError(error)
-    if (requestError.value.status === 401) clearAuthSession()
-    if (requestError.value.retryable) retryContext.value = { payload, idempotencyKey: error.idempotencyKey || idempotencyKey }
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-async function startNewWorkflow() {
-  validationErrors.value = validateMoleculeWorkflowForm(form)
-  if (validationErrors.value.length) return
-  const payload = buildMoleculeWorkflowPayload(form)
-  const idempotencyKey = createIdempotencyKey()
-  retryContext.value = { payload, idempotencyKey }
-  await performSubmission(payload, idempotencyKey)
-}
-
-async function retryNetworkRequest() {
-  if (!retryContext.value || isSubmitting.value) return
-  await performSubmission(retryContext.value.payload, retryContext.value.idempotencyKey)
-}
-
-function formatTime(value) {
-  return value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—'
-}
-
-onMounted(loadRecentWorkflows)
+async function loadCapabilities(){capabilityLoading.value=true;capabilityError.value='';try{const data=await getMoleculeWorkflowCapabilities();capabilities.value=data;Object.assign(form,createCapabilityDrivenMoleculeForm(data,selectedPreset.value))}catch(error){const normalized=normalizeMoleculeWorkflowError(error);capabilityError.value=normalized.message;if(normalized.status===401)clearAuthSession()}finally{capabilityLoading.value=false}}
+function applyPreset(name){const preset=clonePreset(name);form.moleculeName=preset.moleculeName;form.geometry=preset.geometry;form.charge=preset.charge;form.spinMultiplicity=preset.spinMultiplicity}
+function addAtom(){if(form.geometry.length<capabilities.value.max_atom_count)form.geometry.push({element:capabilities.value.supported_elements[0],coordinates:[0,0,0]})}
+function removeAtom(index){if(form.geometry.length>1)form.geometry.splice(index,1)}
+function syncPartitionModel(){const count=Number(form.partitionCount);form.interQpuTopology=Array.from({length:Math.max(count-1,0)},(_,i)=>({source:i,target:i+1}));const existing=form.virtualQpus;form.virtualQpus=Array.from({length:count},(_,i)=>existing[i]||{virtualQpuId:`T${i+1}`,physicalQubitCount:capabilities.value.max_mapped_qubits,physicalCouplingMap:Array.from({length:Math.max(capabilities.value.max_mapped_qubits-1,0)},(_,edge)=>({source:edge,target:edge+1}))})}
+function addInterEdge(){form.interQpuTopology.push({source:0,target:Math.min(1,form.partitionCount-1)})}
+function addPhysicalEdge(chip){chip.physicalCouplingMap.push({source:0,target:Math.min(1,chip.physicalQubitCount-1)})}
+function trimChipEdges(chip){chip.physicalCouplingMap=chip.physicalCouplingMap.filter(edge=>edge.source<chip.physicalQubitCount&&edge.target<chip.physicalQubitCount)}
+function nextStep(){validationErrors.value=validateMoleculeWorkflowForm(form,capabilities.value);if(validationErrors.value.length&&activeStep.value===3)return;activeStep.value++}
+async function executeSubmission(payload,idempotencyKey){isSubmitting.value=true;requestError.value=null;try{const {data}=await submitMoleculeWorkflow(payload,{idempotencyKey});saveRecentMoleculeWorkflow(data);retryContext.value=null;await router.push(`/app/molecule-workflows/${encodeURIComponent(data.workflow_id)}`)}catch(error){const normalized=normalizeMoleculeWorkflowError(error);requestError.value=normalized;if(normalized.retryable)retryContext.value={payload,idempotencyKey:error.idempotencyKey||idempotencyKey};if(normalized.status===401)clearAuthSession()}finally{isSubmitting.value=false}}
+function startNewWorkflow(){validationErrors.value=validateMoleculeWorkflowForm(form,capabilities.value);if(validationErrors.value.length)return;const payload=buildMoleculeWorkflowPayload(form);const idempotencyKey=createIdempotencyKey();retryContext.value={payload,idempotencyKey};executeSubmission(payload,idempotencyKey)}
+function retryNetworkRequest(){if(retryContext.value&&!isSubmitting.value)executeSubmission(retryContext.value.payload,retryContext.value.idempotencyKey)}
+const toRecent=item=>({workflowId:item.workflow_id,moleculeName:item.molecule_name||'未命名分子',validationStatus:item.validation_status||null})
+async function loadRecentWorkflows(){recentLoading.value=true;recentError.value='';try{const response=await listMoleculeWorkflows({page:1,page_size:5});recentWorkflows.value=(response?.items||[]).slice(0,5).map(toRecent);recentSource.value='server'}catch(error){recentError.value='服务端最近任务暂不可用。';if(canUseMoleculeWorkflowLocalFallback(error)){recentWorkflows.value=readRecentMoleculeWorkflows().slice(0,5);recentSource.value='local'}}finally{recentLoading.value=false}}
+onMounted(()=>{loadCapabilities();loadRecentWorkflows()})
 </script>
 
 <style scoped>
-.molecule-entry-page { display: grid; gap: 20px; }
-.molecule-page-head, .preset-section, .subsection-head, .submit-row, .calculation-title { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.molecule-page-head h2 { margin: 6px 0 8px; font-size: clamp(1.65rem, 3vw, 2.3rem); }
-.molecule-page-head p, .field-note, .submit-row p, .calculation-title p { margin: 0; color: var(--lz-muted); line-height: 1.6; }
-.capability-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.request-alert :deep(.el-alert__content) { width: 100%; }
-.request-alert p { margin: 5px 0; }
-.alert-actions { margin-top: 10px; display: flex; gap: 8px; }
-.entry-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
-.molecule-form-panel, .recent-panel, .calculation-state { border: 1px solid var(--lz-line); border-radius: 12px; background: rgba(8, 20, 36, 0.74); box-shadow: var(--lz-shadow); }
-.molecule-form-panel { padding: 22px; }
-.recent-panel { padding: 20px; position: sticky; top: 20px; }
-.preset-section { padding-bottom: 20px; border-bottom: 1px solid var(--lz-line); }
-.preset-section h3, .form-subsection h3, .recent-panel h3 { margin: 4px 0 0; }
-.recent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.section-label { color: var(--lz-cyan); font-size: 0.72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.molecule-form { margin-top: 20px; }
-.form-grid { display: grid; gap: 14px; }
-.four-columns { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.molecule-form :deep(.el-input-number) { width: 100%; }
-.form-subsection { margin: 12px 0 22px; padding-top: 20px; border-top: 1px solid var(--lz-line); }
-.subsection-head { margin-bottom: 14px; }
-.subsection-head :deep(.el-form-item) { margin: 0; min-width: 150px; }
-.atom-table { overflow-x: auto; }
-.atom-row { min-width: 650px; display: grid; grid-template-columns: 100px repeat(3, minmax(130px, 1fr)) 82px; gap: 10px; align-items: center; margin-bottom: 10px; }
-.atom-head { color: var(--lz-muted); font-size: .78rem; font-weight: 800; }
-.edge-row { display: grid; grid-template-columns: 100px 120px 20px 120px 80px; gap: 10px; align-items: center; margin-bottom: 10px; }
-.edge-row :deep(.el-input-number) { width: 120px; }
-.fixed-contract { margin: 18px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.fixed-contract div { padding: 14px; border: 1px solid var(--lz-line); border-radius: 8px; display: grid; gap: 6px; background: rgba(52, 214, 255, .04); }
-.fixed-contract span { color: var(--lz-muted); font-size: .76rem; }
-.fixed-contract strong { color: var(--lz-cyan); overflow-wrap: anywhere; }
-.recent-list { display: grid; gap: 10px; margin-top: 14px; }
-.recent-list a { padding: 12px; border: 1px solid var(--lz-line); border-radius: 8px; color: var(--lz-text); text-decoration: none; display: grid; gap: 5px; }
-.recent-list a:hover { border-color: var(--lz-cyan); }
-.recent-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.recent-list small, .recent-list span, .empty-recent { color: var(--lz-muted); font-size: .75rem; overflow-wrap: anywhere; }
-.empty-recent { padding: 22px 0; line-height: 1.6; }
-.recent-error { margin: 12px 0 0; color: #f2c35b; font-size: .76rem; line-height: 1.5; }
-.recent-error button { padding: 0; border: 0; background: transparent; color: var(--lz-cyan); cursor: pointer; }
-.all-tasks-link { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--lz-line); display: flex; justify-content: space-between; color: var(--lz-cyan); font-size: .82rem; font-weight: 700; text-decoration: none; }
-.calculation-state { padding: 24px; }
-.running-indicator { width: 18px; height: 18px; border: 2px solid rgba(52,214,255,.25); border-top-color: var(--lz-cyan); border-radius: 50%; animation: spin 1s linear infinite; }
-.estimated-stages { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.estimated-stages li { padding: 14px; border: 1px solid var(--lz-line); border-radius: 8px; display: grid; gap: 5px; }
-.estimated-stages li > span { color: var(--lz-cyan); font-size: .72rem; font-weight: 800; }
-.estimated-stages small { color: var(--lz-muted); }
-.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (max-width: 1200px) { .entry-layout { grid-template-columns: 1fr; } .recent-panel { position: static; } .four-columns { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 720px) { .molecule-page-head, .preset-section, .subsection-head, .submit-row { align-items: flex-start; flex-direction: column; } .capability-badges { justify-content: flex-start; } .four-columns, .fixed-contract, .estimated-stages { grid-template-columns: 1fr; } .molecule-form-panel { padding: 16px; } }
+.molecule-entry-page{display:grid;gap:22px}.molecule-page-head{min-height:170px;padding:30px 34px;border:1px solid #c8cec6;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;background:#e7eae4}.page-kicker,.step-head span,.table-heading span,.topology-editor header span,.chip-editor>header span,.recent-head span{color:#6f7d73;font:700 .66rem ui-monospace,monospace;letter-spacing:.12em}.molecule-page-head h2{margin:12px 0 9px;font-size:clamp(2rem,4vw,4rem);line-height:.95;letter-spacing:-.055em}.molecule-page-head p{max-width:720px;margin:0;color:#657069;line-height:1.6}.capability-badges{display:flex;flex-wrap:wrap;gap:8px}.entry-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:22px;align-items:start}.workflow-builder,.recent-panel{border:1px solid #c9cec7;background:#fff}.contract-bar{min-height:42px;padding:0 18px;display:flex;align-items:center;gap:24px;background:#17201d;color:#aab5ae;font:600 .66rem ui-monospace,monospace}.contract-bar a{margin-left:auto;color:#b5f04c;text-decoration:none}.workflow-steps{padding:30px 28px 20px;border-bottom:1px solid #e0e3de}.step-panel{padding:34px}.step-head{margin-bottom:32px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.step-head h3{margin:8px 0;font-size:1.7rem;letter-spacing:-.035em}.step-head p{margin:0;color:#69736d;font-size:.82rem}.form-grid{display:grid;gap:16px}.form-grid.four{grid-template-columns:repeat(4,1fr)}.form-grid.two{grid-template-columns:repeat(2,1fr)}.form-grid.three{grid-template-columns:repeat(3,1fr)}.form-grid :deep(.el-select),.form-grid :deep(.el-input-number){width:100%}.table-heading{margin:22px 0 12px;display:flex;align-items:end;justify-content:space-between}.table-heading h4,.topology-editor h4,.chip-editor h4{margin:5px 0 0;font-size:1rem}.atom-editor{border:1px solid #d7dcd5}.atom-row{min-height:58px;padding:8px 12px;border-bottom:1px solid #e5e8e3;display:grid;grid-template-columns:36px 100px repeat(3,minmax(110px,1fr)) 60px;gap:10px;align-items:center}.atom-row:last-child{border-bottom:0}.atom-row b{color:#728078;font:700 .68rem ui-monospace,monospace}.atom-head{min-height:38px;background:#f3f5f1;color:#76817a;font-size:.68rem}.field-note{margin:12px 0 0;color:#7a857e;font-size:.73rem}.fixed-contract{margin:24px 0;display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#cdd2cb}.fixed-contract article{min-height:170px;padding:26px;background:#f1f3ef}.fixed-contract span,.confirmation-grid span{color:#748078;font:700 .65rem ui-monospace,monospace}.fixed-contract strong{display:block;margin-top:35px;font:700 1rem ui-monospace,monospace}.fixed-contract p{color:#68736c;font-size:.76rem}.method-pair{min-height:32px;display:flex;align-items:center;gap:9px;font:700 .7rem ui-monospace,monospace}.method-pair span{color:#81a05d}.topology-editor,.chip-editor{margin-top:24px;padding:24px;border:1px solid #d5dad3}.topology-editor>header,.chip-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.topology-editor header p,.chip-editor>header p{margin:8px 0 0;color:#748078;font-size:.76rem}.edge-list{margin:18px 0 0;display:grid;gap:8px}.edge-row{min-height:46px;padding:5px 10px;display:grid;grid-template-columns:1fr 120px 20px 120px 50px;gap:8px;align-items:center;background:#f3f5f1;font-size:.72rem}.chip-grid{margin-top:18px;display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.chip-card{padding:20px;border:1px solid #d5dad3;background:#f7f8f5}.chip-head h5{margin:5px 0 0;font-size:1.1rem}.chip-head>div>span{color:#74964f;font:700 .64rem ui-monospace,monospace}.chip-head :deep(.el-form-item){max-width:150px;margin:0}.edge-list.physical .edge-row{grid-template-columns:1fr 80px 15px 80px 48px}.confirmation-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#ccd2ca}.confirmation-grid article{min-height:150px;padding:25px;background:#f5f6f2}.confirmation-grid strong{display:block;margin:25px 0 8px;font-size:1rem}.confirmation-grid p{margin:0;color:#65716a;font-size:.76rem}.execution-notice{margin:22px 0;padding:22px;background:#17201d;color:#fff}.execution-notice div{display:flex;gap:10px;align-items:center}.execution-notice div span,.execution-notice div b{padding:5px 8px;border:1px solid #405048;color:#b5f04c;font-size:.68rem}.execution-notice p{margin:14px 0 0;color:#9caaa1;font-size:.75rem}.step-actions{min-height:76px;padding:14px 30px;border-top:1px solid #dfe3dd;display:flex;align-items:center;justify-content:flex-end;gap:12px}.step-actions>span{margin-right:auto;color:#79847d;font:700 .68rem ui-monospace,monospace}.recent-panel{position:sticky;top:112px;padding:20px}.recent-head{display:flex;align-items:flex-start;justify-content:space-between}.recent-head h3{margin:6px 0 0}.recent-list{margin:18px 0;display:grid}.recent-list a{padding:14px 0;border-bottom:1px solid #e1e5df;display:grid;gap:7px;color:inherit;text-decoration:none}.recent-list a>span{display:flex;align-items:center;justify-content:space-between;gap:8px}.recent-list small{color:#748078;font-size:.62rem;overflow-wrap:anywhere}.all-tasks-link{color:#527634;font-size:.75rem;text-decoration:none}.empty-recent,.recent-error{color:#78837c;font-size:.74rem}.recent-error button{border:0;background:transparent;color:#527634;cursor:pointer}.calculation-state,.capability-loading{min-height:360px;padding:34px;border:1px solid #c9cec7;background:#fff}.calculation-title{display:flex;gap:15px;align-items:center}.calculation-title p{margin:6px 0;color:#6e7a72}.running-indicator{width:14px;height:14px;border:2px solid #cad2c8;border-top-color:#6b963e;border-radius:50%;animation:spin .8s linear infinite}.estimated-stages{margin:28px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);list-style:none}.estimated-stages li{min-height:92px;padding:18px;border:1px solid #e0e4de;display:grid;grid-template-columns:auto 1fr;gap:8px 14px}.estimated-stages li>span{color:#769b51;font:700 .7rem ui-monospace,monospace}.estimated-stages small{grid-column:2;color:#7c8880}.alert-actions{margin-top:10px;display:flex;gap:8px}.mono{font-family:ui-monospace,monospace}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:1180px){.entry-layout{grid-template-columns:1fr}.recent-panel{position:static}.form-grid.four{grid-template-columns:repeat(2,1fr)}}@media(max-width:850px){.molecule-page-head,.step-head{align-items:flex-start;flex-direction:column}.form-grid.two,.form-grid.three,.chip-grid,.confirmation-grid{grid-template-columns:1fr}.atom-editor{overflow-x:auto}.atom-row{min-width:720px}.estimated-stages{grid-template-columns:1fr}.contract-bar{align-items:flex-start;flex-direction:column;padding:14px}.contract-bar a{margin-left:0}.workflow-steps{overflow-x:auto}.step-panel{padding:24px}}@media(max-width:600px){.form-grid.four,.fixed-contract{grid-template-columns:1fr}.edge-row,.edge-list.physical .edge-row{grid-template-columns:1fr 80px 15px 80px 44px}}
 </style>

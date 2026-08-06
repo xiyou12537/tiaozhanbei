@@ -7,11 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:unit": "node --test src/api/index.test.mjs src/services/screeningArchiveStorage.test.mjs src/services/screeningWorkflowService.test.mjs tests/structure-workbench-presentation.test.mjs tests/research-benchmark-presentation.test.mjs tests/molecule-workflow.test.mjs",
-    "test:structure-workbench": "node --test tests/structure-workbench-presentation.test.mjs",
-    "test:research-benchmark": "node --test tests/research-benchmark-presentation.test.mjs",
-    "test:e2e": "playwright test --config=playwright.config.js",
-    "test:e2e:research-benchmark": "playwright test e2e/research-benchmark.spec.js --config=playwright.config.js"
+    "test:unit": "node --test src/api/index.test.mjs tests/molecule-workflow.test.mjs tests/molecule-platform-architecture.test.mjs",
+    "test:e2e": "playwright test --config=playwright.config.js"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.0",

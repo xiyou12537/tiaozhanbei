@@ -2,7 +2,7 @@
   <div class="workflow-history-page">
     <header class="history-hero">
       <div>
-        <span class="lz-kicker">Molecular workflow ledger</span>
+        <span class="lz-kicker">AUTHORITATIVE WORKFLOW LEDGER</span>
         <h2>计算任务</h2>
         <p>服务端历史记录是任务状态的权威来源。执行完成与科研质量验证在这里分别呈现。</p>
       </div>
@@ -315,11 +315,11 @@ onMounted(restoreFromRoute)
 <style scoped>
 .workflow-history-page { display: grid; gap: 20px; }
 .history-hero, .ledger-head, .source-summary, .hero-actions, .pagination-row, .alert-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.history-hero { padding: 4px 0 2px; }
-.history-hero h2 { margin: 6px 0 8px; font-size: clamp(1.7rem, 3vw, 2.35rem); }
+.history-hero { min-height: 170px; padding: 30px 34px; border: 1px solid var(--lz-line); background: #e7eae4; }
+.history-hero h2 { margin: 12px 0 8px; font-size: clamp(2rem, 4vw, 4rem); line-height: .95; letter-spacing: -.055em; }
 .history-hero p { max-width: 760px; margin: 0; color: var(--lz-muted); line-height: 1.65; }
 .hero-actions { justify-content: flex-end; }
-.filter-panel, .history-ledger { border: 1px solid var(--lz-line); border-radius: 12px; background: rgba(8, 20, 36, 0.76); box-shadow: var(--lz-shadow); }
+.filter-panel, .history-ledger { border: 1px solid var(--lz-line); border-radius: 0; background: #fff; box-shadow: none; }
 .filter-panel { padding: 18px 20px 4px; }
 .filter-grid { display: grid; grid-template-columns: minmax(190px, 1.4fr) repeat(3, minmax(150px, 1fr)) auto; gap: 14px; align-items: end; }
 .filter-grid :deep(.el-form-item) { margin-bottom: 14px; }
@@ -332,7 +332,7 @@ onMounted(restoreFromRoute)
 .history-ledger { overflow: hidden; }
 .ledger-head { padding: 18px 20px; border-bottom: 1px solid var(--lz-line); }
 .ledger-head h3 { margin: 4px 0 0; }
-.section-label { color: var(--lz-cyan); font-size: .71rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.section-label { color: var(--lz-cyan); font: 700 .67rem ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
 .source-summary { justify-content: flex-end; color: var(--lz-muted); font-size: .8rem; }
 .table-shell { overflow-x: auto; }
 .initial-loading { padding: 18px 20px; border-bottom: 1px solid var(--lz-line); display: flex; align-items: center; gap: 10px; color: var(--lz-muted); font-size: .84rem; }
@@ -344,7 +344,7 @@ onMounted(restoreFromRoute)
 .workflow-cell strong { color: var(--lz-text); font-size: .95rem; }
 .workflow-cell span { color: var(--lz-cyan); font-size: .73rem; overflow-wrap: anywhere; }
 .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-.number { color: rgba(235, 244, 255, .86); font-size: .78rem; }
+.number { color: #27332d; font-size: .78rem; }
 .pagination-row { padding: 16px 20px; border-top: 1px solid var(--lz-line); color: var(--lz-muted); font-size: .8rem; }
 @keyframes history-spin { to { transform: rotate(360deg); } }
 @media (max-width: 1180px) { .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .filter-actions { align-self: end; } }
