@@ -1,0 +1,18 @@
+{
+  "title": "Fe-N4/C + Li2S4 structure-driven benchmark",
+  "version": "v1.0.0",
+  "catalyst_model_type": "FeN4-graphene local boundary model",
+  "adsorbate_species": "Li2S4",
+  "structure_origin": "repository_reference_geometry",
+  "geometry_status": "initial",
+  "total_charge": 0,
+  "spin_candidate_definitions": {
+    "strategy": "transition_metal_auto_candidates",
+    "multiplicities": [1, 3, 5],
+    "requested_methods": ["UHF", "ROHF"],
+    "basis_set": "def2-SVP",
+    "spin_contamination_threshold": "must be supplied by the chemical owner when creating the case"
+  },
+  "dft_execution_status": "requires_direct_dft_execution_or_audited_external_import",
+  "accepted_reference_id": null
+}

@@ -184,6 +184,124 @@ class ChatHistoryResponse(BaseModel):
     messages: List[ChatMessageResponse]
 
 
+class KnowledgeDocumentCreateRequest(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    document_type: str = Field(default="system_doc", pattern="^(system_doc|paper)$")
+    source_path: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    content: Optional[str] = Field(default=None, min_length=1)
+    summary: Optional[str] = Field(default="")
+
+
+class KnowledgeDocumentResponse(BaseModel):
+    id: int
+    name: str
+    document_type: str
+    source_path: str
+    status: str
+    summary: str
+    chunk_count: int = 0
+    created_at: str
+    updated_at: str
+
+
+class KnowledgeImportDirectoryRequest(BaseModel):
+    directory_path: str = Field(..., min_length=1, max_length=500)
+    document_type: str = Field(default="paper", pattern="^(system_doc|paper)$")
+    recursive: bool = True
+
+
+class KnowledgeImportDirectoryResponse(BaseModel):
+    status: str
+    directory_path: str
+    document_type: str
+    processed_count: int
+    created_count: int
+    indexed_count: int
+    failed_count: int
+
+
+class KnowledgeIndexResponse(BaseModel):
+    document_id: int
+    status: str
+    chunk_count: int
+
+
+class KnowledgeRebuildRequest(BaseModel):
+    document_type: Optional[str] = Field(default=None, pattern="^(system_doc|paper)$")
+
+
+class KnowledgeRebuildResponse(BaseModel):
+    status: str
+    document_count: int
+    chunk_count: int
+    document_type: Optional[str] = None
+
+
+class KnowledgeStatsResponse(BaseModel):
+    document_count: int
+    chunk_count: int
+    indexed_document_count: int
+    uploaded_document_count: int
+    failed_document_count: int
+    system_doc_count: int
+    paper_count: int
+
+
+class KnowledgeDiagnosticIssueResponse(BaseModel):
+    issue_type: str
+    severity: str
+    document_id: int
+    document_name: str
+    document_type: str
+    status: str
+    chunk_count: int
+    source_path: str
+    message: str
+
+
+class KnowledgeDiagnosticsResponse(BaseModel):
+    pdf_backend: str
+    issue_count: int
+    issues: List[KnowledgeDiagnosticIssueResponse]
+
+
+class KnowledgeAnalyticsDocumentResponse(BaseModel):
+    document_id: int
+    document_name: str
+    document_type: str
+    reference_count: int
+    avg_score: float
+    last_referenced_at: str
+
+
+class KnowledgeAnalyticsResponse(BaseModel):
+    total_reference_count: int
+    referenced_document_count: int
+    unreferenced_indexed_document_count: int
+    top_documents: List[KnowledgeAnalyticsDocumentResponse]
+
+
+class KnowledgeSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=5000)
+    top_k: int = Field(default=5, ge=1, le=20)
+    document_type: Optional[str] = Field(default=None, pattern="^(system_doc|paper)$")
+
+
+class KnowledgeSearchHitResponse(BaseModel):
+    chunk_id: int
+    document_id: int
+    document_name: str
+    document_type: str
+    section_title: str
+    content: str
+    score: float
+
+
+class KnowledgeSearchResponse(BaseModel):
+    query: str
+    hits: List[KnowledgeSearchHitResponse]
+
+
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------

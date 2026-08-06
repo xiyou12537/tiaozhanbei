@@ -63,7 +63,7 @@ export async function streamChat(message, { onToken, onDone, onError }) {
               onError && onError(data.error)
               return
             } else if (data.done) {
-              onDone && onDone(data.content || fullContent)
+              onDone && onDone(data.content || fullContent, data.references || [])
               return
             }
           } catch {
@@ -74,7 +74,7 @@ export async function streamChat(message, { onToken, onDone, onError }) {
     }
 
     // Stream ended without explicit done event
-    onDone && onDone(fullContent)
+    onDone && onDone(fullContent, [])
 
   } catch (err) {
     if (err.name === 'AbortError') return

@@ -1,0 +1,115 @@
+{
+  "workflow_id": "molwf_h2_frontend_fixture",
+  "status": "completed",
+  "current_stage": "completed",
+  "validation_status": "passed",
+  "validation_issues": [],
+  "execution_mode": "logical_virtual_qpu",
+  "is_real_qpu": false,
+  "molecule": {
+    "molecule_name": "H2",
+    "geometry": [
+      { "element": "H", "coordinates_angstrom": [0, 0, 0] },
+      { "element": "H", "coordinates_angstrom": [0, 0, 0.735] }
+    ],
+    "atom_count": 2,
+    "charge": 0,
+    "spin_multiplicity": 1,
+    "basis_set": "sto-3g",
+    "geometry_optimization_performed": false
+  },
+  "stages": [
+    { "stage": "input_validation", "status": "completed", "started_at": "2026-08-05T01:00:00Z", "completed_at": "2026-08-05T01:00:00Z", "duration_ms": 1, "details": { "atom_count": 2 } },
+    { "stage": "electronic_structure", "status": "completed", "started_at": "2026-08-05T01:00:00Z", "completed_at": "2026-08-05T01:00:01Z", "duration_ms": 1000, "details": { "method_name": "RHF/sto-3g" } },
+    { "stage": "active_space_selection", "status": "completed", "started_at": "2026-08-05T01:00:01Z", "completed_at": "2026-08-05T01:00:01Z", "duration_ms": 2, "details": { "active_orbitals": 2 } },
+    { "stage": "fermionic_hamiltonian", "status": "completed", "started_at": "2026-08-05T01:00:01Z", "completed_at": "2026-08-05T01:00:02Z", "duration_ms": 700, "details": { "active_orbitals": 2 } },
+    { "stage": "qubit_mapping", "status": "completed", "started_at": "2026-08-05T01:00:02Z", "completed_at": "2026-08-05T01:00:02Z", "duration_ms": 20, "details": { "qubit_count": 4 } },
+    { "stage": "vqe_optimization", "status": "completed", "started_at": "2026-08-05T01:00:02Z", "completed_at": "2026-08-05T01:00:04Z", "duration_ms": 2000, "details": { "converged": true } },
+    { "stage": "circuit_partitioning", "status": "completed", "started_at": "2026-08-05T01:00:04Z", "completed_at": "2026-08-05T01:00:04Z", "duration_ms": 20, "details": { "partition_count": 2 } },
+    { "stage": "virtual_node_mapping", "status": "completed", "started_at": "2026-08-05T01:00:04Z", "completed_at": "2026-08-05T01:00:04Z", "duration_ms": 20, "details": { "mapping_cost": 1 } },
+    { "stage": "logical_distributed_simulation", "status": "completed", "started_at": "2026-08-05T01:00:04Z", "completed_at": "2026-08-05T01:00:05Z", "duration_ms": 500, "details": { "energy_hartree": -1.12 } }
+  ],
+  "hf_energy_hartree": -1.1167,
+  "active_space": {
+    "active_electrons": 2,
+    "active_orbitals": 2,
+    "orbital_indices": [0, 1],
+    "orbital_energies_hartree": [-0.58, 0.67],
+    "selection_method": "requested_candidate"
+  },
+  "hamiltonian": {
+    "mapping_method": "jordan_wigner",
+    "fallback_reason": null,
+    "qubit_count": 4,
+    "qubit_count_before_tapering": 4,
+    "z2_tapering_applied": false,
+    "pauli_term_count": 3,
+    "pauli_terms": [
+      { "pauli_string": "I", "coefficient": -1.05 },
+      { "pauli_string": "Z0", "coefficient": 0.17 },
+      { "pauli_string": "X0 X1", "coefficient": 0.04 }
+    ],
+    "coefficient_cutoff": 0.000001,
+    "truncation_error_estimate": 0
+  },
+  "vqe": {
+    "ansatz": "hardware_efficient_ry_cx",
+    "optimizer": "COBYLA",
+    "initial_state": "hartree_fock_occupation",
+    "initial_occupied_qubits": [0, 1],
+    "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[4];\nx q[0];\ncx q[0],q[1];\n",
+    "converged": true,
+    "optimizer_diagnostics": {
+      "scipy_success": true,
+      "scipy_status": 0,
+      "scipy_message": "Optimization terminated successfully.",
+      "nfev": 3,
+      "termination_reason": "optimizer_reported_success",
+      "best_iteration": 3,
+      "initial_energy_hartree": -1.1,
+      "final_energy_hartree": -1.12,
+      "recent_energy_changes_hartree": [-0.015, -0.005]
+    },
+    "best_parameters": [0.1, 0.2],
+    "iteration_count": 3,
+    "iteration_history": [
+      { "iteration": 1, "parameters": [0, 0], "energy_hartree": -1.1, "energy_uncertainty_hartree": 0 },
+      { "iteration": 2, "parameters": [0.05, 0.1], "energy_hartree": -1.115, "energy_uncertainty_hartree": 0 },
+      { "iteration": 3, "parameters": [0.1, 0.2], "energy_hartree": -1.12, "energy_uncertainty_hartree": 0 }
+    ]
+  },
+  "distribution": {
+    "backend_type": "simulator",
+    "capability_level": "logical_virtual_qpu",
+    "is_real_qpu": false,
+    "partition_scheme": {
+      "method": "existing_greedy_partitioning_pipeline",
+      "partition_count": 2,
+      "partitions": [
+        { "partition_id": "P1", "qubits": [0, 1] },
+        { "partition_id": "P2", "qubits": [2, 3] }
+      ],
+      "teleportations": 1,
+      "global_gate_count": 1,
+      "parameters": { "max_imbalance": 1 }
+    },
+    "virtual_node_mapping": [
+      { "virtual_node_id": "T1", "partition_id": "P1", "qubits": [0, 1] },
+      { "virtual_node_id": "T2", "partition_id": "P2", "qubits": [2, 3] }
+    ],
+    "topology_edges": [{ "source": 0, "target": 1 }],
+    "mapping_cost": 1,
+    "cross_partition_communication_count": 1,
+    "communication_events": [
+      { "gate_index": 6, "gate": "cx", "control_qubit": 1, "target_qubit": 2, "source_partition_id": "P1", "target_partition_id": "P2", "source_virtual_node_id": "T1", "target_virtual_node_id": "T2" }
+    ],
+    "actual_partition_consumption": true,
+    "simulation_strategy": "mapped_partition_tensor_contraction",
+    "state_norm": 1
+  },
+  "energies": {
+    "unpartitioned_benchmark_energy_hartree": -1.12,
+    "distributed_simulation_energy_hartree": -1.1199999999,
+    "absolute_error_hartree": 0.0000000001
+  }
+}

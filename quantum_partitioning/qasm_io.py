@@ -11,13 +11,21 @@ from __future__ import annotations
 
 import tempfile
 import os
-from typing import List, Tuple
-from qiskit import QuantumCircuit
+import re
+from typing import TYPE_CHECKING, List, Tuple
+
+try:
+    from qiskit import QuantumCircuit
+except ImportError:  # Keep the platform's OpenQASM 2.0 path available without an optional parser runtime.
+    QuantumCircuit = None
+
+if TYPE_CHECKING:
+    from qiskit import QuantumCircuit as QuantumCircuitType
 
 from .config import Gate
 
 
-def circuit_to_gate_list(circuit: QuantumCircuit) -> Tuple[int, List[Gate]]:
+def circuit_to_gate_list(circuit: "QuantumCircuitType") -> Tuple[int, List[Gate]]:
     """Convert a Qiskit QuantumCircuit into a flat gate list.
 
     Each gate is ``[name, qubit_index, ...]``.
@@ -66,6 +74,9 @@ def load_qasm_file(filepath: str) -> Tuple[int, List[Gate]]:
     Returns:
         ``(num_qubits, gates)``.
     """
+    if QuantumCircuit is None:
+        with open(filepath, encoding="utf-8") as qasm_file:
+            return _parse_openqasm_2(qasm_file.read())
     circuit = QuantumCircuit.from_qasm_file(filepath)
     return circuit_to_gate_list(circuit)
 
@@ -82,6 +93,9 @@ def load_qasm_string(qasm_str: str) -> Tuple[int, List[Gate]]:
     Returns:
         ``(num_qubits, gates)``.
     """
+    if QuantumCircuit is None:
+        return _parse_openqasm_2(qasm_str)
+
     # Write to temp file so Qiskit's from_qasm_file (permissive parser)
     # can handle extensions that the strict qasm2 parser rejects.
     tmp = tempfile.NamedTemporaryFile(
@@ -95,6 +109,38 @@ def load_qasm_string(qasm_str: str) -> Tuple[int, List[Gate]]:
         os.unlink(tmp.name)
 
     return circuit_to_gate_list(circuit)
+
+
+def _parse_openqasm_2(qasm_str: str) -> Tuple[int, List[Gate]]:
+    """Parse the standard OpenQASM 2.0 subset emitted by platform circuit compilers.
+
+    The fallback intentionally accepts parameterized single-qubit gates and the
+    common two-qubit gates required by the partitioner.  More exotic dialects
+    continue to use Qiskit when it is installed.
+    """
+    qubit_count = 0
+    gates: List[Gate] = []
+    for raw_line in qasm_str.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("//") or line.startswith("OPENQASM") or line.startswith("include"):
+            continue
+        qreg_match = re.fullmatch(r"qreg\s+\w+\[(\d+)\];", line)
+        if qreg_match:
+            qubit_count = int(qreg_match.group(1))
+            continue
+        gate_match = re.fullmatch(r"([A-Za-z_][\w]*)(?:\([^;]*\))?\s+(.+);", line)
+        if gate_match is None:
+            raise ValueError(f"Unsupported OpenQASM 2.0 statement: {line}")
+        gate_name, arguments = gate_match.groups()
+        qubits = [int(index) for index in re.findall(r"\w+\[(\d+)\]", arguments)]
+        if gate_name == "barrier":
+            continue
+        if len(qubits) not in {1, 2}:
+            raise ValueError(f"Unsupported OpenQASM gate arity: {gate_name}")
+        gates.append([gate_name, *qubits])
+    if qubit_count == 0:
+        raise ValueError("OpenQASM 2.0 source does not declare a quantum register.")
+    return qubit_count, gates
 
 
 def gates_to_qasm(num_qubits: int, gates: List[Gate]) -> str:

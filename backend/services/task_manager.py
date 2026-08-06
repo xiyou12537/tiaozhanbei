@@ -66,6 +66,51 @@ class TaskManager:
         self._executor.submit(_wrapper)
         return task_id
 
+    def submit_cancellable(self, fn: Callable[..., Any], *args, **kwargs) -> str:
+        """Run a cooperative task that can terminate an external child process safely."""
+        task_id = str(uuid.uuid4())[:8]
+        self._progress[task_id] = {
+            "status": "queued",
+            "progress": 0.0,
+            "message": "Waiting to start...",
+            "result": None,
+            "error": None,
+            "cancel_requested": False,
+        }
+
+        def is_cancel_requested() -> bool:
+            return bool(self._progress.get(task_id, {}).get("cancel_requested"))
+
+        def _wrapper() -> None:
+            if is_cancel_requested():
+                self._progress[task_id].update(status="cancelled", progress=100.0, message="Cancelled before execution.")
+                return
+            try:
+                self._progress[task_id].update(status="running", progress=10.0, message="Computing...")
+                result = fn(is_cancel_requested, *args, **kwargs)
+                if is_cancel_requested():
+                    self._progress[task_id].update(status="cancelled", progress=100.0, message="Cancelled.", result=result)
+                    return
+                self._progress[task_id].update(status="completed", progress=100.0, message="Done.", result=result)
+                cache.set(f"result:{task_id}", result, ttl=1800)
+            except Exception as exc:
+                if is_cancel_requested():
+                    self._progress[task_id].update(status="cancelled", progress=100.0, message="Cancelled.")
+                    return
+                self._progress[task_id].update(status="failed", message=str(exc), error=traceback.format_exc())
+
+        self._executor.submit(_wrapper)
+        return task_id
+
+    def cancel(self, task_id: str) -> bool:
+        """Request cooperative cancellation; running subprocesses receive the request through their checker."""
+        task = self._progress.get(task_id)
+        if task is None or task["status"] in {"completed", "failed", "cancelled"}:
+            return False
+        task["cancel_requested"] = True
+        task["message"] = "Cancellation requested."
+        return True
+
     def get_status(self, task_id: str) -> Optional[Dict[str, Any]]:
         return self._progress.get(task_id)
 

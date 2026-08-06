@@ -1,0 +1,109 @@
+:root {
+  --lz-bg: #040a14;
+  --lz-bg-soft: #06101a;
+  --lz-panel: rgba(8, 20, 36, 0.72);
+  --lz-panel-solid: #081425;
+  --lz-panel-light: rgba(248, 251, 255, 0.96);
+  --lz-line: rgba(120, 200, 255, 0.14);
+  --lz-line-strong: rgba(120, 200, 255, 0.28);
+  --lz-text: #f4f8fb;
+  --lz-muted: #93a8bd;
+  --lz-dark-text: #101827;
+  --lz-dark-muted: #667085;
+  --lz-cyan: #34d6ff;
+  --lz-teal: #38f3c2;
+  --lz-blue: #1e8cff;
+  --lz-gold: #f2c35b;
+  --lz-danger: #ff8a7a;
+  --lz-radius: 8px;
+  --lz-shadow: 0 30px 90px rgba(0, 0, 0, 0.28);
+  --lz-display: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  --lz-body: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--lz-bg);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--lz-bg);
+  color: var(--lz-text);
+  font-family: var(--lz-body);
+  font-size: 16px;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::selection {
+  background: rgba(107, 216, 255, 0.28);
+}
+
+a,
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #06101b;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid #06101b;
+  border-radius: 999px;
+  background: rgba(125, 211, 252, 0.34);
+}
+
+.el-button {
+  border-radius: var(--lz-radius);
+  font-weight: 700;
+}
+
+.el-button--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--lz-teal), var(--lz-blue));
+  box-shadow: 0 12px 26px rgba(22, 119, 255, 0.22);
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper,
+.el-input-number .el-input__wrapper {
+  border-radius: var(--lz-radius);
+}
+
+.el-tag {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.lz-kicker {
+  color: var(--lz-cyan);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

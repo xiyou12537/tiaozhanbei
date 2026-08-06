@@ -1,0 +1,37 @@
+{
+  "engine_name": "quantum_espresso",
+  "calculation_type": "geometry_optimization",
+  "calculation_metadata": {
+    "software_version": "<approved_qe_version>",
+    "functional": "<approved_functional>",
+    "basis_or_pseudopotential": "<approved_pseudopotential_family>",
+    "dispersion": "<approved_dispersion_setting>",
+    "spin_polarization": true,
+    "total_charge": 0,
+    "spin_multiplicity": 3,
+    "convergence": {
+      "electronic": "<approved_threshold>",
+      "ionic": "<approved_threshold>"
+    }
+  },
+  "engine_settings": {
+    "pseudopotentials": {
+      "Fe": "<Fe.UPF>",
+      "N": "<N.UPF>",
+      "C": "<C.UPF>",
+      "Li": "<Li.UPF>",
+      "S": "<S.UPF>"
+    },
+    "cell_parameters_angstrom": [
+      [15.0, 0.0, 0.0],
+      [0.0, 15.0, 0.0],
+      [0.0, 0.0, 20.0]
+    ],
+    "k_points": [2, 2, 1],
+    "ecutwfc_ry": "<approved_cutoff>",
+    "ecutrho_ry": "<approved_cutoff>",
+    "electronic_convergence": "<approved_threshold>"
+  },
+  "max_attempts": 3,
+  "timeout_seconds": 1800
+}

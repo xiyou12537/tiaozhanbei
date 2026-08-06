@@ -1,0 +1,39 @@
+{
+  "species": "Li2S4",
+  "units": "angstrom",
+  "configurations": [
+    {
+      "label": "li_end_toward_site",
+      "atomic_sites": [
+        {"element": "Li", "position_angstrom": [0.0, 0.0, 2.6]},
+        {"element": "Li", "position_angstrom": [8.0, 0.0, 2.6]},
+        {"element": "S", "position_angstrom": [1.9, 0.0, 2.6]},
+        {"element": "S", "position_angstrom": [3.9, 0.0, 2.6]},
+        {"element": "S", "position_angstrom": [5.9, 0.0, 2.6]},
+        {"element": "S", "position_angstrom": [7.9, 0.0, 2.6]}
+      ]
+    },
+    {
+      "label": "s_chain_toward_site",
+      "atomic_sites": [
+        {"element": "Li", "position_angstrom": [-1.9, 0.0, 2.8]},
+        {"element": "Li", "position_angstrom": [8.1, 0.0, 2.8]},
+        {"element": "S", "position_angstrom": [0.0, 0.0, 2.8]},
+        {"element": "S", "position_angstrom": [2.0, 0.0, 2.8]},
+        {"element": "S", "position_angstrom": [4.0, 0.0, 2.8]},
+        {"element": "S", "position_angstrom": [6.0, 0.0, 2.8]}
+      ]
+    },
+    {
+      "label": "side_on_adsorption",
+      "atomic_sites": [
+        {"element": "Li", "position_angstrom": [-1.9, 1.6, 2.9]},
+        {"element": "Li", "position_angstrom": [8.1, 1.6, 2.9]},
+        {"element": "S", "position_angstrom": [0.0, 1.6, 2.9]},
+        {"element": "S", "position_angstrom": [2.0, 1.6, 2.9]},
+        {"element": "S", "position_angstrom": [4.0, 1.6, 2.9]},
+        {"element": "S", "position_angstrom": [6.0, 1.6, 2.9]}
+      ]
+    }
+  ]
+}

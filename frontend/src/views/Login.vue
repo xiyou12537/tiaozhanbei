@@ -1,9 +1,9 @@
 <template>
   <div class="auth-container">
     <div class="auth-card">
-      <h1>量子线路划分优化系统</h1>
-      <p class="subtitle">分布式量子计算 — 量子比特分区与芯片拓扑映射</p>
-      <el-form :model="form" :rules="rules" ref="formRef" size="large">
+      <h1>量智硫光</h1>
+      <p class="subtitle">登录后进入候选材料筛选工作台与历史归档视图</p>
+      <el-form ref="formRef" :model="form" :rules="rules" size="large">
         <el-form-item prop="username">
           <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" />
         </el-form-item>
@@ -11,19 +11,19 @@
           <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" show-password />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleLogin" :loading="loading" style="width:100%">
-            登 录
+          <el-button type="primary" :loading="loading" style="width: 100%" @click="handleLogin">
+            登录
           </el-button>
         </el-form-item>
       </el-form>
       <p class="footer-text">还没有账号？<router-link to="/register">立即注册</router-link></p>
-      <p class="footer-text"><router-link to="/">← 返回首页</router-link></p>
+      <p class="footer-text"><router-link to="/">返回首页</router-link></p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '../api'
@@ -32,6 +32,7 @@ const router = useRouter()
 const loading = ref(false)
 const formRef = ref(null)
 const form = reactive({ username: '', password: '' })
+
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
@@ -47,8 +48,8 @@ async function handleLogin() {
     localStorage.setItem('user', JSON.stringify({ id: data.user_id, username: data.username }))
     ElMessage.success('登录成功')
     router.push('/app')
-  } catch (e) {
-    ElMessage.error(e.response?.data?.detail || '登录失败')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '登录失败')
   } finally {
     loading.value = false
   }

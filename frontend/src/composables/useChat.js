@@ -1,72 +1,70 @@
-/**
- * useChat —— 共享的 AI 对话状态与逻辑。
- *
- * 供 ChatPage 和 ChatWidget 共同使用，
- * 管理消息列表、流式状态、发送/清空/加载历史等操作。
- */
-
 import { ref, reactive, computed } from 'vue'
 import { streamChat } from '../chatStream'
 import { getChatHistory, clearChatHistory } from '../api'
 
-// ── 单例状态（全局共享，ChatPage 和 ChatWidget 看到同一份对话）──
 const messages = reactive([])
 const streaming = ref(false)
 const streamingText = ref('')
+const streamingReferences = ref([])
 const loading = ref(false)
 
 export function useChat() {
   const hasMessages = computed(() => messages.length > 0)
 
-  /** 从后端加载对话历史 */
   async function loadHistory() {
     loading.value = true
     try {
       const { data } = await getChatHistory()
       messages.splice(0, messages.length, ...(data.messages || []))
-    } catch {
-      // 静默失败 —— 可能未登录
+    } catch (error) {
+      console.warn('加载聊天历史失败，可能是未登录或后端暂不可用。', error)
     } finally {
       loading.value = false
     }
   }
 
-  /** 发送消息并流式接收回复 */
   async function sendMessage(text) {
     const trimmed = text.trim()
     if (!trimmed || streaming.value) return
 
-    // 添加用户消息
-    messages.push({ role: 'user', content: trimmed })
+    messages.push({ role: 'user', content: trimmed, references: [] })
     streaming.value = true
     streamingText.value = ''
+    streamingReferences.value = []
 
     await streamChat(trimmed, {
-      onToken(token, full) {
+      onToken(_token, full) {
         streamingText.value = full
       },
-      onDone(full) {
-        messages.push({ role: 'assistant', content: full })
+      onDone(full, references) {
+        messages.push({ role: 'assistant', content: full, references: references || [] })
         streamingText.value = ''
+        streamingReferences.value = []
         streaming.value = false
       },
       onError(err) {
-        messages.push({ role: 'assistant', content: `❌ ${err}` })
+        messages.push({
+          role: 'assistant',
+          content: `聊天请求失败：${err}`,
+          references: [],
+        })
         streamingText.value = ''
+        streamingReferences.value = []
         streaming.value = false
       },
     })
   }
 
-  /** 清除对话历史 */
   async function clearHistory() {
     try {
       await clearChatHistory()
-    } catch {
-      // 即使 API 失败也清空本地
+    } catch (error) {
+      console.warn('清空聊天历史失败，已先清理本地状态。', error)
     }
+
     messages.splice(0, messages.length)
     streamingText.value = ''
+    streamingReferences.value = []
     streaming.value = false
   }
 
@@ -74,6 +72,7 @@ export function useChat() {
     messages,
     streaming,
     streamingText,
+    streamingReferences,
     loading,
     hasMessages,
     loadHistory,

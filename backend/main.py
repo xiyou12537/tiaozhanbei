@@ -1,53 +1,56 @@
-"""
-量子线路划分优化系统 —— FastAPI 后端入口。
-
-启动方式：
-    cd backend
-    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-API 文档：http://localhost:8000/docs
-"""
-
 from __future__ import annotations
 
-import os
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-# 加载 .env 文件（在所有其他导入之前，确保环境变量可用）
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+
 try:
     from dotenv import load_dotenv
+
     _env_path = Path(__file__).resolve().parent.parent / ".env"
     load_dotenv(_env_path)
 except ImportError:
     pass
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from .api.routers.platform import router as platform_router
+from .api.routers.molecule_workflow import router as molecule_workflow_router
+from .core.config import has_platform_database, has_workflow_queue
+from .database import SessionLocal, init_db, init_platform_db
+from .routers import auth, chat, circuit, export, history, knowledge, mapping, partitioning
+from .services.runtime_status import get_quantum_runtime_status
 
-from .database import init_db
-from .routers import circuit, partitioning, mapping, export, auth, history, chat
+logger = logging.getLogger(__name__)
+APP_VERSION = "3.0.0"
 
-# 创建数据库表
-init_db()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    try:
+        init_platform_db()
+    except Exception as exc:
+        logger.warning("Platform database initialization skipped: %s", exc)
+    yield
+
 
 app = FastAPI(
-    title="量子线路划分优化系统",
+    lifespan=lifespan,
+    title="Liangzhi Liuguang Distributed Quantum Platform",
     description="""
-## 分布式量子计算 —— 量子比特分区与芯片拓扑映射
+## Liangzhi Liuguang Backend Service
 
-### 使用流程
-1. **注册/登录** — `POST /api/auth/register` / `POST /api/auth/login`
-2. **上传电路** — `POST /api/circuit/upload`
-3. **分区计算** — `POST /api/partition/run` → 获取 `task_id`
-4. **轮询状态** — `GET /api/partition/status/{task_id}`
-5. **获取结果** — `GET /api/partition/result/{task_id}`
-6. **芯片映射** — `POST /api/mapping/find`
-7. **导出报告** — `POST /api/export/report`
+This backend currently exposes two groups of APIs:
+
+1. Legacy compatibility APIs: `/api/auth`, `/api/knowledge`, `/api/chat`, `/api/circuit`, `/api/partition`, `/api/mapping`
+2. Platform workflow APIs: `/api/platform/**`
     """,
-    version="2.0.0",
+    version=APP_VERSION,
 )
 
-# CORS 跨域配置
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -60,7 +63,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册路由
 app.include_router(auth.router)
 app.include_router(circuit.router)
 app.include_router(partitioning.router)
@@ -68,9 +70,51 @@ app.include_router(mapping.router)
 app.include_router(export.router)
 app.include_router(history.router)
 app.include_router(chat.router)
+app.include_router(knowledge.router)
+app.include_router(platform_router)
+app.include_router(molecule_workflow_router)
 
 
 @app.get("/api/health")
 def health_check():
-    """健康检查"""
-    return {"status": "ok", "version": "2.0.0"}
+    """Return runtime readiness for local frontend integration."""
+    services: dict[str, dict[str, str]] = {
+        "api": {"status": "ok", "detail": "FastAPI service is running."},
+        "legacy_database": {"status": "ok", "detail": "SQLite compatibility database is reachable."},
+        "authentication": {"status": "ok", "detail": "Authentication router is loaded."},
+        "platform_database": {
+            "status": "ok",
+            "detail": "Platform database is configured."
+            if has_platform_database()
+            else "Not configured; sync workflows use in-memory state.",
+        },
+        "workflow_queue": {
+            "status": "ok",
+            "detail": "RabbitMQ queue is configured."
+            if has_workflow_queue()
+            else "Not configured; queued requests fall back to sync execution.",
+        },
+    }
+
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:
+        services["legacy_database"] = {"status": "degraded", "detail": f"SQLite database error: {exc}"}
+        services["authentication"] = {
+            "status": "degraded",
+            "detail": "Authentication depends on the SQLite compatibility database.",
+        }
+    finally:
+        db.close()
+
+    services.update(get_quantum_runtime_status())
+
+    critical_services = ["api", "legacy_database", "authentication"]
+    overall_status = "ok" if all(services[name]["status"] == "ok" for name in critical_services) else "degraded"
+    return {
+        "status": overall_status,
+        "version": APP_VERSION,
+        "docs_url": "/docs",
+        "services": services,
+    }
