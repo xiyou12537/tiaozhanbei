@@ -3,9 +3,18 @@
     <section class="auth-hero">
       <div class="auth-hero-inner">
         <div class="auth-copy">
-          <span class="eyebrow">Account Access</span>
-          <h1>进入分子量子分布式计算平台</h1>
-<div class="auth-copy-actions">
+          <span class="eyebrow">ACCOUNT / WORKFLOW ACCESS</span>
+          <h1>进入分子量子<br><em>计算工作区</em></h1>
+          <p>使用平台账号访问分子计算、任务记录与可审计的分布式模拟结果。</p>
+
+          <div class="auth-schematic" aria-hidden="true">
+            <header><span>WORKFLOW CONTRACT V2</span><i></i></header>
+            <div class="molecule-pair"><b>H</b><span></span><b>H</b></div>
+            <div class="virtual-chip chip-one"><small>VIRTUAL QPU 01</small><strong>q0 — q2 — q1</strong></div>
+            <div class="virtual-chip chip-two"><small>VIRTUAL QPU 02</small><strong>q0 — q1</strong></div>
+          </div>
+
+          <div class="auth-copy-actions">
             <router-link class="ghost-btn" to="/">返回首页</router-link>
             <router-link class="text-link" to="/app/simulation-capabilities">查看模拟能力</router-link>
           </div>
@@ -51,88 +60,157 @@ function handleSuccess(payload) {
 
 <style scoped>
 .auth-page {
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(55, 125, 255, 0.18), transparent 30%),
-    radial-gradient(circle at 85% 20%, rgba(24, 186, 169, 0.16), transparent 28%),
-    linear-gradient(180deg, #041321 0%, #051626 100%);
+  min-height: calc(100dvh - 172px);
+  background: #f2f3ef;
+  color: #17201d;
 }
 
 .auth-hero {
-  padding: 56px 0 72px;
+  padding: 42px 0 64px;
 }
 
 .auth-hero-inner {
-  width: min(1200px, calc(100% - 48px));
+  width: min(1240px, calc(100% - 72px));
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.98fr);
-  gap: 24px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1.08fr) minmax(400px, 0.92fr);
+  border: 1px solid #c5ccc4;
+  background: #e7eae4;
 }
 
 .auth-copy {
-  padding: 28px 0;
-  color: #f8fbff;
+  min-width: 0;
+  padding: 48px;
+  border-right: 1px solid #c5ccc4;
+  display: flex;
+  flex-direction: column;
 }
 
 .eyebrow {
-  color: #67d5ca;
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-}
-
-.auth-copy h1 {
-  margin-top: 12px;
-  font-size: clamp(2.5rem, 4.6vw, 4rem);
-  line-height: 1.06;
+  color: #66736b;
+  font: 700 0.68rem ui-monospace, monospace;
   letter-spacing: 0;
 }
 
-.auth-copy p {
-  margin-top: 18px;
-  max-width: 640px;
-  color: rgba(223, 232, 243, 0.8);
-  line-height: 1.82;
-  font-size: 0.98rem;
+.auth-copy h1 {
+  margin: 22px 0 18px;
+  max-width: 690px;
+  font-size: 5.1rem;
+  line-height: 0.94;
+  letter-spacing: 0;
+  font-weight: 800;
+  text-wrap: balance;
 }
 
-.auth-copy-grid {
-  margin-top: 28px;
+.auth-copy h1 em {
+  color: #5e7a4f;
+  font-style: normal;
+}
+
+.auth-copy > p {
+  max-width: 580px;
+  margin: 0;
+  color: #5f6b64;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  text-wrap: pretty;
+}
+
+.auth-schematic {
+  min-height: 250px;
+  margin-top: 36px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #bdc6bc;
+  background-color: #f2f3ef;
+  background-image: linear-gradient(#d8ddd6 1px, transparent 1px), linear-gradient(90deg, #d8ddd6 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.auth-schematic header {
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid #cbd1ca;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(242, 243, 239, 0.92);
+}
+
+.auth-schematic header span {
+  color: #68766d;
+  font: 700 0.62rem ui-monospace, monospace;
+  letter-spacing: 0;
+}
+
+.auth-schematic header i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #b5f04c;
+  box-shadow: 0 0 0 4px rgba(181, 240, 76, 0.16);
+}
+
+.molecule-pair {
+  position: absolute;
+  left: 36px;
+  top: 91px;
+  display: flex;
+  align-items: center;
+}
+
+.molecule-pair b {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  place-items: center;
+  background: #17201d;
+  color: #b5f04c;
+  font: 700 0.9rem ui-monospace, monospace;
 }
 
-.copy-card {
-  padding: 18px;
-  border-radius: 8px;
-  border: 1px solid rgba(166, 204, 247, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(10px);
+.molecule-pair span {
+  width: 54px;
+  height: 1px;
+  background: #17201d;
 }
 
-.copy-card strong {
+.virtual-chip {
+  min-width: 170px;
+  padding: 13px 15px;
+  position: absolute;
+  right: 28px;
+  border: 1px solid #17201d;
+  background: #f7f8f4;
+}
+
+.virtual-chip small {
   display: block;
-  color: #f8fbff;
-  font-size: 0.94rem;
+  color: #718078;
+  font: 700 0.58rem ui-monospace, monospace;
 }
 
-.copy-card span {
+.virtual-chip strong {
   display: block;
-  margin-top: 10px;
-  color: rgba(223, 232, 243, 0.74);
-  line-height: 1.7;
-  font-size: 0.84rem;
+  margin-top: 8px;
+  font: 700 0.76rem ui-monospace, monospace;
+}
+
+.chip-one {
+  top: 79px;
+}
+
+.chip-two {
+  top: 157px;
+  border-color: #6f914f;
 }
 
 .auth-copy-actions {
-  margin-top: 26px;
+  margin-top: 24px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -140,42 +218,121 @@ function handleSuccess(payload) {
 .text-link {
   min-height: 42px;
   padding: 0 18px;
-  border-radius: 8px;
+  border: 1px solid #17201d;
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .ghost-btn {
-  border: 1px solid rgba(166, 204, 247, 0.16);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f8fbff;
+  background: #17201d;
+  color: #f4f6f1;
 }
 
 .text-link {
-  color: #67d5ca;
+  border-color: #b9c1b8;
+  color: #445149;
+}
+
+.ghost-btn:hover,
+.text-link:hover {
+  transform: translateY(-1px);
+}
+
+.ghost-btn:hover {
+  background: #26332d;
+}
+
+.text-link:hover {
+  border-color: #6f914f;
+  color: #527634;
+}
+
+.ghost-btn:focus-visible,
+.text-link:focus-visible {
+  outline: 2px solid #6f914f;
+  outline-offset: 3px;
 }
 
 .auth-panel {
-  align-self: stretch;
+  min-width: 0;
 }
 
-@media (max-width: 1100px) {
-  .auth-hero-inner,
-  .auth-copy-grid {
+@media (max-width: 980px) {
+  .auth-hero-inner {
     grid-template-columns: 1fr;
+  }
+
+  .auth-copy {
+    border-right: 0;
+    border-bottom: 1px solid #c5ccc4;
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 721px) {
+  .auth-copy h1 {
+    font-size: 4.25rem;
   }
 }
 
 @media (max-width: 720px) {
   .auth-hero {
-    padding-top: 32px;
+    padding: 24px 0 42px;
   }
 
   .auth-hero-inner {
-    width: min(1200px, calc(100% - 32px));
+    width: calc(100% - 28px);
+  }
+
+  .auth-copy {
+    padding: 30px 24px;
+  }
+
+  .auth-copy h1 {
+    font-size: 2.65rem;
+  }
+
+  .auth-schematic {
+    min-height: 220px;
+  }
+
+  .molecule-pair {
+    left: 22px;
+    top: 78px;
+  }
+
+  .molecule-pair b {
+    width: 40px;
+    height: 40px;
+  }
+
+  .molecule-pair span {
+    width: 28px;
+  }
+
+  .virtual-chip {
+    min-width: 142px;
+    right: 16px;
+  }
+
+  .chip-one {
+    top: 70px;
+  }
+
+  .chip-two {
+    top: 140px;
+  }
+
+  .auth-copy-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .auth-copy-actions a {
+    justify-content: center;
   }
 }
 </style>

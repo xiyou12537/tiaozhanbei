@@ -6,12 +6,14 @@ import forcedSwapFixture from './fixtures/forced-swap-molecule-workflow.mjs'
 import zeroSwapFixture from './fixtures/zero-swap-molecule-workflow.mjs'
 
 const source = async path => readFile(new URL(path, import.meta.url), 'utf8')
-const [routerSource, layoutSource, homeSource, entrySource, resultSource] = await Promise.all([
+const [routerSource, layoutSource, homeSource, entrySource, resultSource, authPageSource, authCardSource] = await Promise.all([
   source('../src/router.js'),
   source('../src/views/Layout.vue'),
   source('../src/views/HomePage.vue'),
   source('../src/views/MoleculesPage.vue'),
   source('../src/views/MoleculeWorkflowResultPage.vue'),
+  source('../src/views/AuthPage.vue'),
+  source('../src/components/AuthFormCard.vue'),
 ])
 
 const capabilities = {
@@ -101,6 +103,16 @@ test('应用信息架构仅保留分子计算、任务、结果和模拟能力',
   const visibleShell = `${layoutSource}\n${homeSource}\n${entrySource}\n${resultSource}`
   assert.match(visibleShell, /分子量子分布式计算平台/)
   assert.doesNotMatch(visibleShell, /锂硫电池|Li₂S₄|Li2S4|FeN₄|FeN4|吸附|文献基准/)
+})
+
+test('登录注册页与分子计算平台使用统一视觉体系', () => {
+  const authVisualSource = `${authPageSource}\n${authCardSource}`
+  for (const platformColor of ['#f2f3ef', '#17201d', '#b5f04c']) {
+    assert.match(authVisualSource, new RegExp(platformColor, 'i'))
+  }
+  for (const legacyColor of ['#377dff', '#18baa9', '#041321', '#051626']) {
+    assert.doesNotMatch(authVisualSource, new RegExp(legacyColor, 'i'))
+  }
 })
 
 test('新建页为四步且结果页明确区分两类拓扑与路由消费', () => {

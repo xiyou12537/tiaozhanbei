@@ -1,70 +1,53 @@
 <template>
   <div class="platform-home">
-    <section class="hero">
+    <section class="home-hero">
       <div class="hero-copy">
-        <span class="eyebrow">MOLECULE → HAMILTONIAN → DISTRIBUTED SIMULATION</span>
-        <h1>分子量子<br><em>分布式计算平台</em></h1>
-        <p>从固定分子几何出发，生成量子 Hamiltonian 与 VQE 线路，在可审计的虚拟 QPU 拓扑和芯片耦合约束下完成路由与逻辑分布式模拟。</p>
+        <span class="hero-kicker">MOLECULAR WORKFLOW / 04</span>
+        <h1 class="hero-title"><span class="hero-title-line">分子量子</span><em class="hero-title-line">分布式计算平台</em></h1>
+        <p>从分子结构，到可验证的协同计算。</p>
         <div class="hero-actions">
-          <router-link class="primary-action" to="/app/molecules">新建分子计算 <span>↗</span></router-link>
-          <router-link class="secondary-action" to="/app/simulation-capabilities">查看模拟能力</router-link>
+          <router-link class="primary-action" to="/app/molecules">开始计算 <span aria-hidden="true">↗</span></router-link>
+          <a class="secondary-action" href="#process">看见完整过程 <span aria-hidden="true">↓</span></a>
         </div>
+        <p class="hero-disclaimer">逻辑分布式模拟，非真实 QPU。</p>
       </div>
-      <div class="hero-diagram" aria-label="计算流程示意">
-        <div class="diagram-grid"></div>
-        <span class="molecule-node node-a">H</span><span class="molecule-node node-b">H</span><i class="bond"></i>
-        <div class="flow-label"><strong>9</strong><span>个可追踪阶段</span></div>
-        <div class="qpu qpu-a"><small>VIRTUAL QPU 01</small><b>q0 — q2 — q1</b></div>
-        <div class="qpu qpu-b"><small>VIRTUAL QPU 02</small><b>q0 — q1</b></div>
-        <svg viewBox="0 0 640 440" aria-hidden="true"><path d="M155 178 C255 132 330 185 388 245"/><path d="M388 245 C450 292 490 270 526 218"/></svg>
+      <div class="hero-cluster" aria-hidden="true" data-testid="hero-lih-cluster">
+        <i v-for="atom in clusterAtoms" :key="atom.id" :class="['hero-atom', atom.element.toLowerCase()]" :style="{ left: `${atom.x}%`, top: `${atom.y}%` }"></i>
+        <span v-for="edge in clusterEdges" :key="edge.id" class="hero-edge" :style="edge.style"></span>
       </div>
+      <div class="hero-meta" aria-hidden="true"><span>(LiH)₄ / MOLECULAR ORIGIN</span><span>SCROLL-BOUND COMPUTATION</span></div>
     </section>
 
-    <section class="workflow-strip">
-      <article v-for="(step, index) in workflow" :key="step.title">
-        <span>{{ String(index + 1).padStart(2, '0') }}</span><div><strong>{{ step.title }}</strong><p>{{ step.text }}</p></div>
-      </article>
-    </section>
+    <MoleculeNarrativeCanvas />
 
-    <section class="home-proof">
-      <div><span class="eyebrow">EXECUTION BOUNDARY</span><h2>结果可查看，边界不含混</h2></div>
-      <div class="proof-grid">
-        <article><strong>模拟器</strong><p>固定显示执行后端类型，不暗示物理芯片执行。</p></article>
-        <article><strong>非真实 QPU</strong><p>以服务端 is_real_qpu 为唯一判断依据。</p></article>
-        <article><strong>路由证据</strong><p>分开呈现分区间拓扑、芯片内耦合、SWAP 路径和布局变化。</p></article>
-      </div>
+    <section class="home-bridge" aria-label="继续使用平台">
+      <div><span class="bridge-kicker">CONTINUE THE WORKFLOW</span><h2>把下一组原子<br /><em>交给平台。</em></h2></div>
+      <div class="bridge-actions"><router-link class="bridge-primary" to="/app/molecules">新建计算 <span aria-hidden="true">↗</span></router-link><router-link class="bridge-secondary" to="/app/molecule-workflows">计算任务 <span aria-hidden="true">↗</span></router-link></div>
     </section>
   </div>
 </template>
 
 <script setup>
-const workflow = [
-  { title: '分子结构', text: '固定几何、电荷、自旋与基组' },
-  { title: '量子线路', text: 'Hamiltonian、VQE 与 QASM' },
-  { title: '分区路由', text: '虚拟拓扑、芯片耦合与 SWAP' },
-  { title: '能量质量', text: '分布式能量、误差与复核状态' },
+import MoleculeNarrativeCanvas from '../components/home/MoleculeNarrativeCanvas.vue'
+
+const clusterAtoms = [
+  { id: 'li-1', element: 'Li', x: 31, y: 42 }, { id: 'li-2', element: 'Li', x: 59, y: 29 },
+  { id: 'li-3', element: 'Li', x: 41, y: 72 }, { id: 'li-4', element: 'Li', x: 70, y: 58 },
+  { id: 'h-1', element: 'H', x: 46, y: 27 }, { id: 'h-2', element: 'H', x: 73, y: 42 },
+  { id: 'h-3', element: 'H', x: 28, y: 59 }, { id: 'h-4', element: 'H', x: 55, y: 77 },
+]
+const clusterEdges = [
+  { id: 'a', style: { left: '31%', top: '42%', width: '38%', transform: 'rotate(-18deg)' } },
+  { id: 'b', style: { left: '32%', top: '58%', width: '36%', transform: 'rotate(22deg)' } },
+  { id: 'c', style: { left: '46%', top: '28%', width: '28%', transform: 'rotate(49deg)' } },
 ]
 </script>
 
 <style scoped>
-.platform-home { min-height: 100vh; background: #f2f3ef; color: #16201c; }
-.hero { width: min(1380px, calc(100% - 72px)); min-height: 690px; margin: 0 auto; padding: 90px 0 64px; display: grid; grid-template-columns: .9fr 1.1fr; gap: 70px; align-items: center; }
-.eyebrow { color: #66716a; font: 700 .7rem ui-monospace, monospace; letter-spacing: .13em; }
-.hero h1 { margin: 24px 0; font-size: clamp(3.2rem, 6vw, 6.7rem); line-height: .92; letter-spacing: -.075em; font-weight: 800; }
-.hero h1 em { color: #5e7a4f; font-style: normal; }
-.hero-copy > p { max-width: 620px; color: #5e6963; font-size: 1rem; line-height: 1.9; }
-.hero-actions { margin-top: 34px; display: flex; gap: 12px; }
-.hero-actions a { min-height: 50px; padding: 0 20px; border: 1px solid #1b2721; display: inline-flex; align-items: center; gap: 24px; color: #17201c; text-decoration: none; font-size: .84rem; font-weight: 700; }
-.hero-actions .primary-action { background: #17201c; color: #f5f7f2; }
-.hero-diagram { height: 520px; position: relative; overflow: hidden; border: 1px solid #bcc4bb; background: #e7eae3; }
-.diagram-grid { position: absolute; inset: 0; opacity: .42; background-image: linear-gradient(#c3cac2 1px, transparent 1px), linear-gradient(90deg,#c3cac2 1px,transparent 1px); background-size: 42px 42px; }
-.molecule-node { width: 74px; height: 74px; position: absolute; top: 115px; z-index: 2; border-radius: 50%; display: grid; place-items: center; background: #17201c; color: #b5f04c; font: 700 1.2rem ui-monospace, monospace; }
-.node-a { left: 80px; }.node-b { left: 225px; }.bond { width: 90px; height: 2px; position: absolute; left: 147px; top: 151px; background: #17201c; }
-.flow-label { position: absolute; left: 76px; bottom: 70px; display: flex; align-items: baseline; gap: 10px; }.flow-label strong { font-size: 4rem; line-height: 1; }.flow-label span { color: #59655e; font-size: .78rem; }
-.qpu { min-width: 190px; padding: 17px 20px; position: absolute; z-index: 2; border: 1px solid #17201c; background: #f2f3ef; }.qpu small { display: block; color: #718078; font: 700 .62rem ui-monospace,monospace; }.qpu b { display: block; margin-top: 11px; font: 700 .84rem ui-monospace,monospace; }.qpu-a { right: 58px; top: 225px; }.qpu-b { right: 88px; top: 330px; border-color: #668846; }
-.hero-diagram svg { position: absolute; inset: 0; width: 100%; height: 100%; }.hero-diagram path { fill: none; stroke: #668846; stroke-width: 2; stroke-dasharray: 5 5; }
-.workflow-strip { display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid #cbd0c9; border-bottom: 1px solid #cbd0c9; }
-.workflow-strip article { min-height: 170px; padding: 34px clamp(20px,3vw,46px); border-right: 1px solid #cbd0c9; display: flex; gap: 24px; }.workflow-strip article:last-child { border-right: 0; }.workflow-strip article > span { color: #70984a; font: 700 .72rem ui-monospace,monospace; }.workflow-strip strong { font-size: .92rem; }.workflow-strip p { margin: 14px 0 0; color: #69746e; font-size: .78rem; line-height: 1.65; }
-.home-proof { width: min(1240px,calc(100% - 72px)); margin: 0 auto; padding: 110px 0 130px; display: grid; grid-template-columns: .7fr 1.3fr; gap: 80px; }.home-proof h2 { max-width: 420px; margin: 16px 0 0; font-size: clamp(2rem,4vw,4.4rem); line-height: 1; letter-spacing: -.06em; }.proof-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: #bdc5bd; }.proof-grid article { min-height: 230px; padding: 30px; background: #f2f3ef; }.proof-grid strong { font-size: 1rem; }.proof-grid p { margin: 75px 0 0; color: #66716b; font-size: .8rem; line-height: 1.7; }
-@media(max-width:980px){.hero,.home-proof{grid-template-columns:1fr}.hero{padding-top:60px}.workflow-strip{grid-template-columns:repeat(2,1fr)}.proof-grid{grid-template-columns:1fr}.proof-grid article{min-height:150px}.proof-grid p{margin-top:35px}} @media(max-width:640px){.hero,.home-proof{width:calc(100% - 36px)}.hero-diagram{height:430px}.workflow-strip{grid-template-columns:1fr}.hero-actions{align-items:stretch;flex-direction:column}.hero h1{font-size:3.2rem}}
+.platform-home { min-height: 100vh; overflow: clip; background: #f2f3ef; color: #17201d; }.home-hero { min-height: calc(100svh - 134px); padding: 10vh clamp(24px, 7vw, 110px) 7vh; position: relative; display: flex; align-items: center; }.hero-copy { max-width: 930px; position: relative; z-index: 1; }.hero-kicker, .bridge-kicker { color: #6f914f; font: 700 .64rem ui-monospace, monospace; letter-spacing: .12em; }.hero-title { margin: 26px 0 25px; font-size: clamp(4.5rem, 7.7vw, 7.8rem); line-height: .91; letter-spacing: 0; font-weight: 800; }.hero-title-line { display: block; white-space: nowrap; }.hero-title em { color: #5e7a4f; font-style: normal; }.hero-copy > p { margin: 0; color: #56655b; font-size: clamp(1rem, 1.4vw, 1.24rem); line-height: 1.7; }.hero-actions { margin-top: 36px; display: flex; gap: 12px; flex-wrap: wrap; }.hero-actions a { min-height: 48px; padding: 0 19px; border: 1px solid #17201d; display: inline-flex; align-items: center; gap: 20px; color: #17201d; text-decoration: none; font-size: .8rem; font-weight: 700; transition: transform .2s ease, background .2s ease, color .2s ease; }.hero-actions a:hover { transform: translateY(-2px); }.hero-actions .primary-action { background: #17201d; color: #f4f6f1; }.hero-actions .primary-action:hover { background: #2c3c32; }.hero-actions .secondary-action { border-color: #b9c3b9; color: #4d5d53; }.hero-actions .secondary-action:hover { border-color: #6f914f; color: #527634; }.hero-disclaimer { margin-top: 42px !important; color: #6c7a70 !important; font: 700 .68rem ui-monospace, monospace !important; letter-spacing: .03em; }
+.hero-cluster { width: min(31vw, 420px); aspect-ratio: 1; position: absolute; right: clamp(24px, 6vw, 96px); top: 16%; opacity: .94; }.hero-atom { width: clamp(34px, 4vw, 58px); aspect-ratio: 1; position: absolute; z-index: 1; border: 1px solid #789072; border-radius: 50%; background: #b8c1ba; box-shadow: 0 0 0 8px rgba(184,193,186,.12); transform: translate(-50%, -50%); }.hero-atom.h { width: clamp(20px, 2.45vw, 34px); border-color: #c8cec5; background: #f6f7f1; box-shadow: 0 0 0 6px rgba(246,247,241,.45); }.hero-edge { height: 1px; position: absolute; z-index: 0; background: #6f914f; opacity: .65; transform-origin: left; }.hero-meta { position: absolute; right: clamp(24px, 7vw, 110px); bottom: 4vh; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; color: #829087; font: .58rem ui-monospace, monospace; letter-spacing: .1em; }
+.home-bridge { padding: 17vh clamp(24px, 7vw, 110px) 19vh; display: flex; align-items: end; justify-content: space-between; gap: 50px; border-top: 1px solid #c9cec7; background: #f2f3ef; }.home-bridge h2 { margin: 22px 0 0; font-size: clamp(2.7rem, 6vw, 6.8rem); line-height: .9; letter-spacing: 0; font-weight: 800; }.home-bridge h2 em { color: #5e7a4f; font-style: normal; }.bridge-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }.bridge-actions a { min-height: 46px; padding: 0 18px; border: 1px solid #17201d; display: inline-flex; align-items: center; gap: 20px; color: #17201d; font-size: .78rem; font-weight: 700; text-decoration: none; }.bridge-primary { background: #17201d; color: #f4f6f1 !important; }.bridge-secondary { border-color: #b9c3b9 !important; color: #4d5d53 !important; }
+@media (max-width: 900px) { .hero-cluster { right: 4vw; opacity: .62; }.hero-title { font-size: clamp(3.7rem, 8.2vw, 5.7rem); } }
+@media (max-width: 620px) { .home-hero { min-height: calc(100svh - 132px); padding: 8vh 24px 9vh; align-items: flex-start; }.hero-copy { max-width: 100%; }.hero-title { margin: 22px 0 22px; font-size: clamp(2.55rem, 10.8vw, 3.6rem); line-height: .94; }.hero-actions { margin-top: 28px; }.hero-disclaimer { margin-top: 32px !important; }.hero-cluster { width: 164px; right: 16px; top: auto; bottom: 16px; opacity: .78; }.hero-meta { display: none; }.home-bridge { align-items: flex-start; flex-direction: column; padding: 13vh 24px 16vh; }.bridge-actions { justify-content: flex-start; } }
+@media (prefers-reduced-motion: reduce) { .hero-actions a { transition: none; } }
 </style>

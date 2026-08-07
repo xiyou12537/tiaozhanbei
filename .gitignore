@@ -32,6 +32,7 @@ data/
 
 # ── Environment ──
 .env
+*.pem
 
 # ── Worktrees ──
 .codex/

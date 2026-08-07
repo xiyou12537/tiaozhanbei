@@ -13,7 +13,7 @@ importers:
         version: 2.3.2(vue@3.5.40)
       axios:
         specifier: ^1.7.0
-        version: 1.19.0
+        version: 1.19.0(debug@4.4.3)
       echarts:
         specifier: ^5.5.0
         version: 5.6.0
@@ -23,6 +23,9 @@ importers:
       marked:
         specifier: ^18.0.5
         version: 18.0.8
+      three:
+        specifier: ^0.178.0
+        version: 0.178.0
       vis-data:
         specifier: ^7.1.0
         version: 7.1.10(uuid@11.1.1)(vis-util@5.0.7(@egjs/hammerjs@2.0.17)(component-emitter@2.0.0))
@@ -667,6 +670,9 @@ packages:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
 
+  three@0.178.0:
+    resolution: {integrity: sha512-ybFIB0+x8mz0wnZgSGy2MO/WCO6xZhQSZnmfytSPyNpM0sBafGRVhdaj+erYh5U+RhQOAg/eXqw5uVDiM2BjhQ==}
+
   tslib@2.3.0:
     resolution: {integrity: sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==}
 
@@ -1055,9 +1061,9 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.19.0:
+  axios@1.19.0(debug@4.4.3):
     dependencies:
-      follow-redirects: 1.16.0
+      follow-redirects: 1.16.0(debug@4.4.3)
       form-data: 4.0.6
       https-proxy-agent: 5.0.1
       proxy-from-env: 2.1.0
@@ -1161,7 +1167,9 @@ snapshots:
 
   estree-walker@2.0.2: {}
 
-  follow-redirects@1.16.0: {}
+  follow-redirects@1.16.0(debug@4.4.3):
+    optionalDependencies:
+      debug: 4.4.3
 
   form-data@4.0.6:
     dependencies:
@@ -1301,6 +1309,8 @@ snapshots:
       fsevents: 2.3.3
 
   source-map-js@1.2.1: {}
+
+  three@0.178.0: {}
 
   tslib@2.3.0: {}
 

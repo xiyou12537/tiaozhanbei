@@ -16,7 +16,7 @@ import HomeFooter from '../components/home/HomeFooter.vue'
 <style scoped>
 .public-shell {
   min-height: 100vh;
-  background: #040a14;
+  background: #f2f3ef;
 }
 
 .public-main {

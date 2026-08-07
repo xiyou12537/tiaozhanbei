@@ -308,12 +308,9 @@ function resolveAuthErrorMessage(error, mode) {
 <style scoped>
 .auth-card {
   position: relative;
-  padding: 28px;
-  border-radius: 8px;
-  border: 1px solid rgba(166, 204, 247, 0.16);
-  background: linear-gradient(180deg, rgba(10, 26, 43, 0.96) 0%, rgba(7, 20, 33, 0.98) 100%);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32);
-  color: #f8fbff;
+  padding: 42px 38px 36px;
+  background: #f7f8f4;
+  color: #17201d;
 }
 
 .auth-close {
@@ -322,10 +319,9 @@ function resolveAuthErrorMessage(error, mode) {
   right: 16px;
   width: 34px;
   height: 34px;
-  border: 1px solid rgba(166, 204, 247, 0.16);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(248, 251, 255, 0.76);
+  border: 1px solid #c6ccc5;
+  background: #eef0eb;
+  color: #5f6b64;
   cursor: pointer;
 }
 
@@ -339,42 +335,41 @@ function resolveAuthErrorMessage(error, mode) {
 .auth-badge {
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #18baa9, #377dff);
-  color: #fff;
-  font-weight: 700;
-  box-shadow: 0 12px 30px rgba(40, 112, 211, 0.32);
+  background: #17201d;
+  color: #b5f04c;
+  font: 800 0.68rem ui-monospace, monospace;
 }
 
 .auth-kicker {
-  color: #67d5ca;
-  font-size: 0.74rem;
+  color: #68766d;
+  font: 700 0.65rem ui-monospace, monospace;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .auth-card-head h2 {
   margin-top: 8px;
-  font-size: 1.56rem;
+  font-size: 1.48rem;
   letter-spacing: 0;
 }
 
 .auth-card-head p {
   margin-top: 10px;
-  color: rgba(223, 232, 243, 0.76);
+  max-width: 46ch;
+  color: #66726b;
   line-height: 1.72;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  text-wrap: pretty;
 }
 
 .form-success,
 .form-error {
   margin-top: 16px;
   padding: 11px 12px;
-  border-radius: 8px;
   font-size: 0.82rem;
   line-height: 1.6;
 }
@@ -383,40 +378,51 @@ function resolveAuthErrorMessage(error, mode) {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(34, 197, 94, 0.24);
-  background: rgba(34, 197, 94, 0.1);
-  color: #a7f3d0;
+  border: 1px solid #9bb788;
+  background: #e7efe1;
+  color: #39562b;
 }
 
 .form-error {
-  border: 1px solid rgba(255, 133, 109, 0.2);
-  background: rgba(255, 133, 109, 0.08);
-  color: #ffc3b6;
+  border: 1px solid #d9a38f;
+  background: #f6e7e1;
+  color: #7f3e2b;
 }
 
 .auth-tabs {
-  margin-top: 24px;
+  margin-top: 28px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  border: 1px solid #c8cec6;
 }
 
 .auth-tabs button {
   height: 42px;
-  border-radius: 8px;
-  border: 1px solid rgba(166, 204, 247, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(223, 232, 243, 0.72);
-  font-size: 0.88rem;
-  font-weight: 600;
+  border: 0;
+  border-right: 1px solid #c8cec6;
+  background: #eef0eb;
+  color: #68746d;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
 
+.auth-tabs button:last-child {
+  border-right: 0;
+}
+
 .auth-tabs button.active {
-  border-color: transparent;
-  background: linear-gradient(135deg, #18baa9, #377dff);
-  color: #fff;
+  background: #17201d;
+  color: #b5f04c;
+}
+
+.auth-tabs button:focus-visible,
+.auth-close:focus-visible,
+.auth-submit:focus-visible,
+.switch-link:focus-visible {
+  outline: 2px solid #6f914f;
+  outline-offset: 3px;
 }
 
 .auth-form {
@@ -438,8 +444,9 @@ function resolveAuthErrorMessage(error, mode) {
 }
 
 .field-label {
-  color: rgba(223, 232, 243, 0.82);
-  font-size: 0.82rem;
+  color: #526058;
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .form-field {
@@ -448,10 +455,15 @@ function resolveAuthErrorMessage(error, mode) {
   display: flex;
   align-items: center;
   gap: 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(166, 204, 247, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: #8fb0c7;
+  border: 1px solid #c8cec6;
+  background: #fff;
+  color: #6f914f;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.form-field:focus-within {
+  border-color: #6f914f;
+  box-shadow: 0 0 0 3px rgba(111, 145, 79, 0.12);
 }
 
 .form-field input {
@@ -460,24 +472,33 @@ function resolveAuthErrorMessage(error, mode) {
   border: none;
   outline: none;
   background: transparent;
-  color: #f8fbff;
+  color: #17201d;
   font-size: 0.92rem;
 }
 
 .form-field input::placeholder {
-  color: rgba(223, 232, 243, 0.42);
+  color: #9aa39d;
 }
 
 .auth-submit {
-  margin-top: 6px;
-  min-height: 46px;
-  border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #18baa9, #377dff);
-  color: #fff;
-  font-size: 0.92rem;
-  font-weight: 600;
+  margin-top: 8px;
+  min-height: 48px;
+  border: 1px solid #17201d;
+  background: #17201d;
+  color: #f4f6f1;
+  font-size: 0.86rem;
+  font-weight: 700;
   cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: #26332d;
+  transform: translateY(-1px);
+}
+
+.auth-submit:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .auth-submit:disabled {
@@ -491,28 +512,27 @@ function resolveAuthErrorMessage(error, mode) {
 
 .auth-helper {
   margin-top: 20px;
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(166, 204, 247, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+  padding: 15px 16px;
+  border-left: 3px solid #6f914f;
+  background: #ecefe9;
 }
 
 .auth-helper strong {
-  color: #f8fbff;
-  font-size: 0.88rem;
+  color: #26322c;
+  font-size: 0.8rem;
 }
 
 .auth-helper p {
   margin-top: 8px;
-  color: rgba(223, 232, 243, 0.72);
-  font-size: 0.82rem;
+  color: #69756e;
+  font-size: 0.76rem;
   line-height: 1.72;
 }
 
 .auth-switch {
   margin-top: 18px;
-  color: rgba(223, 232, 243, 0.7);
-  font-size: 0.82rem;
+  color: #6d7871;
+  font-size: 0.78rem;
   text-align: center;
 }
 
@@ -521,9 +541,9 @@ function resolveAuthErrorMessage(error, mode) {
   padding: 0;
   border: none;
   background: transparent;
-  color: #67d5ca;
+  color: #527634;
   cursor: pointer;
-  font: inherit;
+  font: 700 inherit;
 }
 
 @keyframes spin {
@@ -532,6 +552,26 @@ function resolveAuthErrorMessage(error, mode) {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 720px) {
+  .auth-card {
+    padding: 32px 24px 30px;
+  }
+
+  .auth-card-head {
+    grid-template-columns: 38px 1fr;
+    gap: 12px;
+  }
+
+  .auth-badge {
+    width: 38px;
+    height: 38px;
+  }
+
+  .auth-card-head h2 {
+    font-size: 1.28rem;
   }
 }
 </style>
