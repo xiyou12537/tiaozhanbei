@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +25,12 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+_runtime_jwt_secret = settings.JWT_SECRET.strip() or secrets.token_urlsafe(48)
+
+
+def get_jwt_secret() -> str:
+    """Return the configured signing key or an ephemeral development key."""
+    return _runtime_jwt_secret
 
 
 def has_platform_database() -> bool:

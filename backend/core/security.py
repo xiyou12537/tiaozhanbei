@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import HTTPException, status
 
-from backend.core.config import settings
+from backend.core.config import get_jwt_secret, settings
 
 
 def hash_password(password: str) -> str:
@@ -30,12 +30,12 @@ def create_access_token(user_id: int, username: str) -> str:
         "exp": expire_at,
         "iat": datetime.now(timezone.utc),
     }
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
+    return jwt.encode(payload, get_jwt_secret(), algorithm="HS256")
 
 
 def decode_access_token(token: str) -> dict:
     try:
-        return jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+        return jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

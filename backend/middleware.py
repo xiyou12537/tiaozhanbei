@@ -7,10 +7,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from .core.config import get_jwt_secret
 from .database import get_db
 from .models_db import User
 
-SECRET_KEY = "quantum-partitioning-secret-key-2024"
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
@@ -25,13 +25,13 @@ def create_token(user_id: int, username: str) -> str:
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=TOKEN_EXPIRE_HOURS),
         "iat": datetime.datetime.utcnow(),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, get_jwt_secret(), algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT token."""
     try:
-        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return jwt.decode(token, get_jwt_secret(), algorithms=[ALGORITHM])
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已过期，请重新登录。") from exc
     except jwt.InvalidTokenError as exc:

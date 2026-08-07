@@ -1,0 +1,25 @@
+[Unit]
+Description=Tiaozhanbei molecular quantum workflow backend
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+SupplementaryGroups=docker
+WorkingDirectory=/opt/tiaozhanbei
+EnvironmentFile=/etc/tiaozhanbei/backend.env
+ExecStart=/opt/tiaozhanbei/.venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/opt/tiaozhanbei/data
+
+[Install]
+WantedBy=multi-user.target
