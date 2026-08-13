@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
+import logging
 import os
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -12,19 +15,47 @@ from ..middleware import create_token, get_current_user
 from ..models_db import User
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
+logger = logging.getLogger(__name__)
+
+_HEX_64 = re.compile(r"^[0-9a-f]{64}$")
+_CURRENT_HASH_PREFIX = "v2"
 
 
 def _hash_password(password: str) -> str:
     """Hash a password with a random salt before persisting it."""
     salt = os.urandom(32).hex()
     hashed = hashlib.sha256((salt + password).encode()).hexdigest()
-    return f"{salt}${hashed}"
+    return f"{_CURRENT_HASH_PREFIX}${salt}${hashed}"
 
 
-def _verify_password(password: str, stored: str) -> bool:
-    """Check whether the provided password matches the stored salted hash."""
-    salt, hashed = stored.split("$", 1)
-    return hashed == hashlib.sha256((salt + password).encode()).hexdigest()
+def _verify_password(password: str, stored: object) -> tuple[bool, bool]:
+    """Verify only known hash formats without exposing hash data.
+
+    The historical project format was ``<64-hex-salt>$<64-hex-sha256>``.
+    It remains supported as a controlled legacy format and is upgraded after a
+    successful login. New hashes use the explicit ``v2$`` prefix.
+    """
+    if not isinstance(stored, str):
+        logger.warning("Rejected password hash with a non-string format.")
+        return False, False
+
+    parts = stored.split("$")
+    if len(parts) == 3 and parts[0] == _CURRENT_HASH_PREFIX:
+        _, salt, digest = parts
+        needs_upgrade = False
+    elif len(parts) == 2:
+        salt, digest = parts
+        needs_upgrade = True
+    else:
+        logger.warning("Rejected password hash with an unrecognized format.")
+        return False, False
+
+    if not _HEX_64.fullmatch(salt) or not _HEX_64.fullmatch(digest):
+        logger.warning("Rejected password hash with an invalid component format.")
+        return False, False
+
+    expected_digest = hashlib.sha256((salt + password).encode()).hexdigest()
+    return hmac.compare_digest(digest, expected_digest), needs_upgrade
 
 
 class RegisterRequest(BaseModel):
@@ -83,8 +114,13 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate an existing user and return a token."""
     user = db.query(User).filter(User.username == body.username).first()
-    if not user or not _verify_password(body.password, user.password_hash):
+    verified, needs_upgrade = _verify_password(body.password, user.password_hash) if user else (False, False)
+    if not verified:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误。")
+
+    if needs_upgrade:
+        user.password_hash = _hash_password(body.password)
+        db.commit()
 
     token = create_token(user.id, user.username)
     return AuthResponse(

@@ -115,6 +115,23 @@ class MoleculeWorkflowRequest(BaseModel):
     execution_mode: Literal["logical_virtual_qpu"] = "logical_virtual_qpu"
 
 
+class DeploymentArchitecture(BaseModel):
+    architecture_id: str = Field(..., min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._:-]+$")
+    architecture_name: str | None = Field(default=None, min_length=1, max_length=120)
+    partition: PartitionOptions
+
+
+class MolecularStudyRequest(MoleculeWorkflowRequest):
+    architectures: list[DeploymentArchitecture] = Field(..., min_length=3, max_length=12)
+
+    @model_validator(mode="after")
+    def distinct_architecture_ids(self):
+        identifiers = [item.architecture_id for item in self.architectures]
+        if len(set(identifiers)) != len(identifiers):
+            raise ValueError("architecture_id must be unique within a study.")
+        return self
+
+
 class CalculationStage(BaseModel):
     stage: str
     status: Literal["running", "completed", "failed"]
@@ -180,6 +197,8 @@ class VqeOptimizerDiagnostics(BaseModel):
 
 class VqeResult(BaseModel):
     ansatz: str
+    ansatz_version: str | None = None
+    simulator_version: str | None = None
     optimizer: str
     initial_state: str
     initial_occupied_qubits: list[int]
@@ -218,7 +237,7 @@ class LogicalPhysicalLayout(BaseModel):
 
 
 class RoutedGate(BaseModel):
-    gate: str
+    gate: Literal["x", "h", "s", "sdg", "ry", "rz", "cx", "swap"]
     physical_qubits: list[int]
 
 
@@ -261,7 +280,7 @@ class IntraChipRoutingCost(BaseModel):
 class RoutedExecutionPlanStep(BaseModel):
     execution_index: int
     original_gate_index: int
-    operation: Literal["x", "ry", "cx", "swap"]
+    operation: Literal["x", "h", "s", "sdg", "ry", "rz", "cx", "swap"]
     scope: Literal["intra_qpu", "inter_qpu"]
     partition_ids: list[str]
     virtual_qpu_ids: list[str]
@@ -319,6 +338,366 @@ class ValidationIssue(BaseModel):
     stage: Literal["vqe_optimization"]
     iteration_count: int
     message: str
+
+
+class OptimizerValidation(BaseModel):
+    status: Literal["passed", "needs_review"]
+    optimizer: str
+    success: bool
+    termination_reason: str
+    nfev: int
+
+
+class ScientificValidationIssue(BaseModel):
+    code: str
+    message: str
+
+
+class ScientificValidation(BaseModel):
+    status: Literal["passed", "needs_review", "failed"]
+    target_electron_count: int
+    particle_number_expectation: float | None = None
+    particle_number_variance: float | None = None
+    hf_reference_energy_hartree: float | None = None
+    hf_determinant_energy_hartree: float | None = None
+    zero_parameter_energy_hartree: float | None = None
+    first_objective_energy_hartree: float | None = None
+    hf_reference_error_hartree: float | None = None
+    fci_reference_energy_hartree: float | None = None
+    exact_qubit_ground_energy_hartree: float | None = None
+    vqe_fci_error_hartree: float | None = None
+    chemical_accuracy_threshold_hartree: float
+    chemical_accuracy_reached: bool | None = None
+    variational_bound_satisfied: bool | None = None
+    minimum_consistency_status: Literal["passed", "needs_review"] | None = None
+    core_energy_hartree: float | None = None
+    active_electrons: int
+    active_orbitals: list[int]
+    qubit_ordering: str
+    spin_square: float | None = None
+    expected_spin_square: float | None = None
+    spin_contamination: float | None = None
+    issues: list[ScientificValidationIssue] = Field(default_factory=list)
+
+
+class DeploymentValidation(BaseModel):
+    status: Literal["passed", "needs_review"]
+    distributed_execution_error_hartree: float | None = None
+    actual_routed_plan_consumption: bool | None = None
+    state_norm: float | None = None
+
+
+StudyStatus = Literal["queued", "running", "completed", "failed"]
+EvaluationStatus = Literal["queued", "running", "completed", "failed"]
+
+
+class MolecularStudyErrorDetail(BaseModel):
+    """A stable business error payload for molecular-study endpoints."""
+
+    code: str
+    message: str
+    stage: str | None = None
+    study_id: str | None = None
+    molecular_problem_id: str | None = None
+    architecture_id: str | None = None
+
+
+class MolecularStudyErrorResponse(BaseModel):
+    detail: MolecularStudyErrorDetail
+
+
+class MolecularProblemVqeResult(VqeResult):
+    unpartitioned_energy_hartree: float | None = None
+
+
+class FciReferenceResult(BaseModel):
+    status: Literal["available", "unavailable", "not_configured"]
+    method: str | None = None
+    energy_hartree: float | None = None
+    message: str | None = None
+
+
+class MolecularProblemResult(BaseModel):
+    """The reusable PySCF/Hamiltonian/VQE calculation of a molecular study.
+
+    While a study is queued or running this retains its shape and uses null
+    values for results that have not been produced yet.
+    """
+
+    molecular_problem_id: str
+    status: StudyStatus
+    stages: list[CalculationStage] = Field(default_factory=list)
+    molecule: MoleculeSummary | None = None
+    hf_energy_hartree: float | None = None
+    active_space: ActiveSpaceResult | None = None
+    hamiltonian: HamiltonianResult | None = None
+    vqe: MolecularProblemVqeResult | None = None
+    fci_reference: FciReferenceResult
+    vqe_fci_scientific_error_hartree: float | None = None
+    optimizer_validation: OptimizerValidation | None = None
+    scientific_validation: ScientificValidation | None = None
+    hamiltonian_builder_version: str | None = None
+    scientific_validation_version: str | None = None
+
+
+class DeploymentFailureReason(BaseModel):
+    code: str
+    message: str
+    stage: str | None = None
+
+
+class DeploymentPartitionSummary(BaseModel):
+    partition_count: int
+    partition_sizes: list[int]
+    partitions: list[PartitionAssignment]
+
+
+class DeploymentArchitectureResult(BaseModel):
+    inter_qpu_topology: list[TopologyEdge]
+    virtual_qpus: list[VirtualQpuRequest]
+    initial_layout: Literal["identity"]
+    routing_method: Literal["shortest_path_swap"]
+
+
+class DeploymentMetrics(BaseModel):
+    abstract_swap_count: int
+    cross_partition_communication_count: int
+    original_operation_count: int
+    routed_operation_count: int
+    original_two_qubit_operation_count: int
+    routed_two_qubit_operation_count: int
+    native_two_qubit_gate_equivalent_count: int
+
+
+class DeploymentEnergyValidation(BaseModel):
+    unpartitioned_vqe_energy_hartree: float
+    distributed_simulation_energy_hartree: float
+    distributed_execution_error_hartree: float
+
+
+class DeploymentEvaluationResult(BaseModel):
+    """One architecture's deployment outcome.
+
+    A capacity/topology rejection is a completed evaluation with
+    ``is_deployable=false``. A runtime error is ``failed`` with a null
+    deployability decision. Neither outcome alone makes the parent study fail.
+    """
+
+    evaluation_id: str
+    architecture_id: str
+    architecture_name: str
+    status: EvaluationStatus
+    is_deployable: bool | None = None
+    failure_reason: DeploymentFailureReason | None = None
+    partition_summary: DeploymentPartitionSummary | None = None
+    architecture: DeploymentArchitectureResult
+    metrics: DeploymentMetrics | None = None
+    energy_validation: DeploymentEnergyValidation | None = None
+    distribution: DistributionResult | None = None
+
+
+class MolecularStudySummary(BaseModel):
+    total_evaluation_count: int
+    completed_evaluation_count: int
+    deployable_evaluation_count: int
+    non_deployable_evaluation_count: int
+    failed_evaluation_count: int
+
+
+class MolecularStudyResult(BaseModel):
+    molecular_problem: MolecularProblemResult
+    deployment_evaluations: list[DeploymentEvaluationResult]
+    summary: MolecularStudySummary
+
+
+class MolecularStudyAcceptedResponse(BaseModel):
+    study_id: str
+    molecular_problem_id: str
+    problem_id: str | None = Field(default=None, deprecated=True)
+    status: Literal["queued"]
+    current_stage: Literal["queued"]
+    created_at: str
+    started_at: None = None
+    completed_at: None = None
+    completed_evaluation_count: Literal[0]
+    total_evaluation_count: int
+    error: None = None
+
+
+class MolecularStudyResponse(BaseModel):
+    """Persisted state of an asynchronous molecular deployment study.
+
+    Poll while status is queued or running; stop while completed or failed. A
+    running study returns a stable partial ``result`` skeleton, and a completed
+    study can contain both deployable and non-deployable architecture results.
+    """
+
+    study_id: str
+    molecular_problem_id: str
+    problem_id: str | None = Field(default=None, deprecated=True)
+    status: StudyStatus
+    current_stage: str
+    created_at: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    completed_evaluation_count: int
+    total_evaluation_count: int
+    result: MolecularStudyResult | None = Field(
+        default=None,
+        description="Stable partial skeleton while queued/running; complete result when completed."
+    )
+    error: MolecularStudyErrorDetail | None = None
+
+
+class BondScanOptions(BaseModel):
+    start_distance_angstrom: float = Field(..., ge=0.5, le=5.0)
+    end_distance_angstrom: float = Field(..., ge=0.5, le=5.0)
+    point_count: int = Field(..., ge=2, le=16)
+
+    @model_validator(mode="after")
+    def valid_scan_range(self):
+        if self.end_distance_angstrom <= self.start_distance_angstrom:
+            raise ValueError("end_distance_angstrom must be greater than start_distance_angstrom.")
+        return self
+
+
+class BondScanChemistryOptions(BaseModel):
+    charge: int = Field(default=0, ge=-10, le=10)
+    spin_multiplicity: int = Field(default=1, ge=1, le=11)
+    basis_set: Literal["sto-3g"] = "sto-3g"
+    active_space_orbitals: int = Field(default=2, ge=1, le=6)
+    pauli_coefficient_cutoff: float = Field(default=0.000001, gt=0, le=0.01)
+    vqe: VqeOptions = Field(default_factory=VqeOptions)
+
+
+class MolecularBondScanRequest(BaseModel):
+    molecule_type: Literal["LiH"] = "LiH"
+    scan: BondScanOptions
+    chemistry: BondScanChemistryOptions = Field(default_factory=BondScanChemistryOptions)
+    deployment_architectures: list[DeploymentArchitecture] = Field(..., min_length=3, max_length=12)
+
+    @model_validator(mode="after")
+    def distinct_deployment_architecture_ids(self):
+        identifiers = [item.architecture_id for item in self.deployment_architectures]
+        if len(set(identifiers)) != len(identifiers):
+            raise ValueError("architecture_id must be unique within a bond scan.")
+        return self
+
+
+class BondScanFciReference(BaseModel):
+    status: Literal["available", "unavailable", "not_configured"]
+    method: str | None = None
+    energy_hartree: float | None = None
+    message: str | None = None
+
+
+class MolecularBondScanPoint(BaseModel):
+    point_index: int
+    distance_angstrom: float
+    status: StudyStatus
+    validation_status: Literal["passed", "needs_review"] | None = None
+    validation_issues: list[ValidationIssue] = Field(default_factory=list)
+    optimizer_validation: OptimizerValidation | None = None
+    scientific_validation: ScientificValidation | None = None
+    deployment_validation: DeploymentValidation | None = None
+    molecular_problem_id: str | None = None
+    hf_energy_hartree: float | None = None
+    vqe_energy_hartree: float | None = None
+    vqe_converged: bool | None = None
+    optimizer_diagnostics: VqeOptimizerDiagnostics | None = None
+    fci_reference: BondScanFciReference
+    vqe_fci_scientific_error_hartree: float | None = None
+    qubit_count: int | None = None
+    pauli_term_count: int | None = None
+    qasm: str | None = None
+    stages: list[CalculationStage] = Field(default_factory=list)
+    error: MolecularBondScanErrorDetail | None = None
+
+
+class DiscreteEnergyMinimum(BaseModel):
+    point_index: int
+    distance_angstrom: float
+    energy_hartree: float
+    minimum_at_boundary: bool
+    message: str | None = None
+
+
+class MolecularBondScanSummary(BaseModel):
+    issues: list[str] = Field(default_factory=list)
+    minimum_at_boundary: bool = False
+
+
+class MolecularBondScanResult(BaseModel):
+    points: list[MolecularBondScanPoint]
+    hf_discrete_minimum: DiscreteEnergyMinimum | None = None
+    vqe_discrete_minimum: DiscreteEnergyMinimum | None = None
+    scientific_vqe_discrete_minimum: DiscreteEnergyMinimum | None = None
+    engineering_only_deployment: bool | None = Field(
+        default=None,
+        description="Null until deployment selection is known, including legacy results that predate this evidence.",
+    )
+    fci_discrete_minimum: DiscreteEnergyMinimum | None = None
+    deployment_reference_point_index: int | None = None
+    deployment_study_id: str | None = None
+    deployment_result: list[DeploymentEvaluationResult] | None = None
+    summary: MolecularBondScanSummary
+
+
+class MolecularBondScanAcceptedResponse(BaseModel):
+    scan_id: str
+    status: StudyStatus
+    current_stage: str
+    created_at: str
+    total_point_count: int
+
+
+class MolecularBondScanResponse(BaseModel):
+    scan_id: str
+    molecule_type: Literal["LiH"]
+    status: StudyStatus
+    current_stage: str
+    execution_mode: Literal["logical_virtual_qpu"]
+    is_real_qpu: Literal[False]
+    created_at: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    total_point_count: int
+    queued_point_count: int
+    running_point_count: int
+    completed_point_count: int
+    failed_point_count: int
+    needs_review_point_count: int
+    current_point_index: int | None = None
+    result: MolecularBondScanResult | None = None
+    error: MolecularBondScanErrorDetail | None = None
+
+
+class MolecularBondScanErrorDetail(BaseModel):
+    """Stable non-sensitive business error payload for LiH bond scans."""
+
+    code: str
+    message: str
+    stage: str | None = None
+    scan_id: str | None = None
+    point_index: int | None = None
+    molecular_problem_id: str | None = None
+
+
+class MolecularBondScanErrorResponse(BaseModel):
+    detail: MolecularBondScanErrorDetail
+
+
+class MolecularBondScanCapabilitiesResponse(BaseModel):
+    supported_molecule_types: list[Literal["LiH"]]
+    distance_range_angstrom: tuple[float, float]
+    minimum_point_count: int
+    maximum_point_count: int
+    supported_basis_sets: list[Literal["sto-3g"]]
+    active_space_orbital_range: tuple[int, int]
+    fci_supported: bool
+    deployment_architecture_count_range: tuple[int, int]
+    execution_mode: Literal["logical_virtual_qpu"]
+    is_real_qpu: Literal[False]
 
 
 SUCCESS_RESPONSE_EXAMPLE = {
@@ -475,8 +854,10 @@ class MoleculeWorkflowResponse(BaseModel):
     contract_version: str | None = None
     status: Literal["completed"]
     current_stage: Literal["completed"]
-    validation_status: Literal["passed", "needs_review"]
-    validation_issues: list[ValidationIssue]
+    validation_status: Literal["passed", "needs_review"] = Field(
+        ..., deprecated=True, description="Legacy optimizer-only status. Use optimizer_validation, scientific_validation and deployment_validation."
+    )
+    validation_issues: list[ValidationIssue] = Field(default_factory=list, deprecated=True)
     execution_mode: Literal["logical_virtual_qpu"]
     is_real_qpu: Literal[False]
     molecule: MoleculeSummary
@@ -487,6 +868,12 @@ class MoleculeWorkflowResponse(BaseModel):
     vqe: VqeResult
     distribution: DistributionResult
     energies: EnergyComparison
+    optimizer_validation: OptimizerValidation | None = None
+    scientific_validation: ScientificValidation | None = None
+    deployment_validation: DeploymentValidation | None = None
+    fci_reference: FciReferenceResult | None = None
+    hamiltonian_builder_version: str | None = None
+    scientific_validation_version: str | None = None
 
 
 CAPABILITIES_RESPONSE_EXAMPLE = {

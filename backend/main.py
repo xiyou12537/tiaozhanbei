@@ -18,6 +18,8 @@ except ImportError:
 
 from .api.routers.platform import router as platform_router
 from .api.routers.molecule_workflow import router as molecule_workflow_router
+from .api.routers.molecular_study import router as molecular_study_router
+from .api.routers.molecular_bond_scan import router as molecular_bond_scan_router
 from .core.config import has_platform_database, has_workflow_queue, legacy_platform_routers_enabled
 from .database import SessionLocal, init_db, init_platform_db
 from .routers import auth, chat, circuit, export, history, knowledge, mapping, partitioning
@@ -65,6 +67,8 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(molecule_workflow_router)
+app.include_router(molecular_study_router)
+app.include_router(molecular_bond_scan_router)
 if legacy_platform_routers_enabled():
     app.include_router(circuit.router)
     app.include_router(partitioning.router)
@@ -144,6 +148,8 @@ def create_app(*, legacy_enabled: bool = False) -> FastAPI:
     )
     compatibility_app.include_router(auth.router)
     compatibility_app.include_router(molecule_workflow_router)
+    compatibility_app.include_router(molecular_study_router)
+    compatibility_app.include_router(molecular_bond_scan_router)
     compatibility_app.include_router(circuit.router)
     compatibility_app.include_router(partitioning.router)
     compatibility_app.include_router(mapping.router)

@@ -26,12 +26,20 @@ from quantum_partitioning.chip_mapping import (
 from .distributed_simulator import DistributedSimulationError, LogicalVirtualQPUSimulator
 from .chip_routing import ChipRoutingError, route_partition_circuits
 from .repository import MoleculeWorkflowRepository
+from .runtime_guard import (
+    MolecularComputeAdmissionController,
+    get_molecular_compute_admission,
+    molecular_compute_queue_timeout_seconds,
+)
 
 logger = logging.getLogger(__name__)
 
 MAX_ATOMS = 10
 MAX_MAPPED_QUBITS = 12
 MAX_ACTIVE_ORBITALS = MAX_MAPPED_QUBITS // 2
+CHEMICAL_ACCURACY_THRESHOLD_HARTREE = 1.6e-3
+SCIENTIFIC_VALIDATION_VERSION = "1.0"
+HAMILTONIAN_BUILDER_VERSION = "pyscf_openfermion_jordan_wigner_v1"
 STAGE_NAMES = (
     "input_validation",
     "electronic_structure",
@@ -73,13 +81,45 @@ class MoleculeWorkflowService:
         electronic_structure_adapter: DockerPySCFAdapter | None = None,
         vqe_service: VqeSimulatorService | None = None,
         distributed_simulator: LogicalVirtualQPUSimulator | None = None,
+        compute_admission: MolecularComputeAdmissionController | None = None,
     ) -> None:
         self.repository = repository
         self.electronic_structure_adapter = electronic_structure_adapter or DockerPySCFAdapter()
         self.vqe_service = vqe_service or VqeSimulatorService()
         self.distributed_simulator = distributed_simulator or LogicalVirtualQPUSimulator()
+        self.compute_admission = compute_admission or get_molecular_compute_admission()
 
-    def execute(self, request: dict[str, Any], owner_user_id: int, idempotency_key: str | None = None) -> dict[str, Any]:
+    def execute(
+        self,
+        request: dict[str, Any],
+        owner_user_id: int,
+        idempotency_key: str | None = None,
+        *,
+        wait_for_compute_slot: bool = False,
+    ) -> dict[str, Any]:
+        """Run a memory-bound chemistry task with bounded process-local admission."""
+        if idempotency_key:
+            existing = self.repository.get_by_idempotency_key(owner_user_id, idempotency_key)
+            if existing is not None:
+                return self._resolve_idempotent_record(existing, request)
+        acquired = (
+            self.compute_admission.wait_acquire(molecular_compute_queue_timeout_seconds())
+            if wait_for_compute_slot
+            else self.compute_admission.try_acquire()
+        )
+        if not acquired:
+            raise MoleculeWorkflowError(
+                "molecular_compute_capacity_exhausted",
+                "Molecular compute capacity is currently exhausted; retry after an active calculation completes.",
+                "scheduling",
+                503,
+            )
+        try:
+            return self._execute_with_compute_slot(request, owner_user_id, idempotency_key)
+        finally:
+            self.compute_admission.release()
+
+    def _execute_with_compute_slot(self, request: dict[str, Any], owner_user_id: int, idempotency_key: str | None = None) -> dict[str, Any]:
         if idempotency_key:
             existing = self.repository.get_by_idempotency_key(owner_user_id, idempotency_key)
             if existing is not None:
@@ -247,8 +287,33 @@ class MoleculeWorkflowService:
             unpartitioned_energy = float(vqe_result["final_energy_hartree"])
             distributed_energy = float(distributed_result["energy_hartree"])
             validation_status, validation_issues = self._scientific_validation(vqe_result)
+            fci_reference = self._fci_reference(electronic_request, active_space)
+            scientific_validation = self._scientific_audit(
+                electronic_result=electronic_result,
+                active_space=active_space,
+                hamiltonian=hamiltonian_result,
+                mapped_hamiltonian=mapped_hamiltonian,
+                vqe_result=vqe_result,
+                initial_occupied_qubits=initial_occupied_qubits,
+                fci_reference=fci_reference,
+            )
+            optimizer_validation = {
+                "status": "passed" if vqe_result["converged"] else "needs_review",
+                "optimizer": vqe_result["optimizer"],
+                "success": bool(vqe_result["converged"]),
+                "termination_reason": vqe_result["optimizer_diagnostics"]["termination_reason"],
+                "nfev": vqe_result["optimizer_diagnostics"]["nfev"],
+            }
+            deployment_validation = {
+                "status": "passed" if abs(distributed_energy - unpartitioned_energy) <= 1e-8 and distributed_result["actual_routed_plan_consumption"] and abs(distributed_result["state_norm"] - 1.0) <= 1e-8 else "needs_review",
+                "distributed_execution_error_hartree": abs(distributed_energy - unpartitioned_energy),
+                "actual_routed_plan_consumption": distributed_result["actual_routed_plan_consumption"],
+                "state_norm": distributed_result["state_norm"],
+            }
             result = {
                 "workflow_id": workflow_id,
+                # Additive audit fields retain the frozen v2.0 response shape;
+                # ansatz/scientific_validation versions identify the new result semantics.
                 "contract_version": "2.0",
                 "status": "completed",
                 "current_stage": "completed",
@@ -280,7 +345,9 @@ class MoleculeWorkflowService:
                     "truncation_error_estimate": mapped_hamiltonian["truncation_error_estimate"],
                 },
                 "vqe": {
-                    "ansatz": "hardware_efficient_ry_cx",
+                    "ansatz": vqe_result.get("ansatz_name", "hardware_efficient_ry_cx"),
+                    "ansatz_version": vqe_result.get("ansatz_version"),
+                    "simulator_version": vqe_result.get("simulator_version"),
                     "optimizer": vqe_result["optimizer"],
                     "initial_state": "hartree_fock_occupation",
                     "initial_occupied_qubits": initial_occupied_qubits,
@@ -327,6 +394,12 @@ class MoleculeWorkflowService:
                     "distributed_simulation_energy_hartree": distributed_energy,
                     "absolute_error_hartree": abs(distributed_energy - unpartitioned_energy),
                 },
+                "optimizer_validation": optimizer_validation,
+                "scientific_validation": scientific_validation,
+                "deployment_validation": deployment_validation,
+                "fci_reference": fci_reference,
+                "hamiltonian_builder_version": HAMILTONIAN_BUILDER_VERSION,
+                "scientific_validation_version": SCIENTIFIC_VALIDATION_VERSION,
             }
             self.repository.complete(record, result)
             return result
@@ -540,6 +613,90 @@ class MoleculeWorkflowService:
             ],
         )
 
+    def _fci_reference(self, electronic_request: dict[str, Any], active_space: dict[str, Any]) -> dict[str, Any]:
+        """Request an active-space FCI calculation from the same PySCF inputs.
+
+        It is deliberately a reference artifact: an unavailable FCI service
+        does not turn an otherwise executable workflow into a failed task.
+        """
+        try:
+            result = self.electronic_structure_adapter.calculate_classical_reference({
+                **electronic_request,
+                "orbital_indices": active_space["orbital_indices"],
+                "active_electrons": active_space["active_electrons"],
+            })
+        except (AttributeError, ElectronicStructureRuntimeError, KeyError):
+            return {"status": "not_configured", "method": None, "energy_hartree": None, "message": "FCI reference runtime is not configured."}
+        if result.get("status") == "completed":
+            return {"status": "available", "method": result.get("method"), "energy_hartree": float(result["energy_hartree"]), "message": None}
+        return {"status": "unavailable", "method": result.get("method"), "energy_hartree": None, "message": result.get("message", "FCI reference is unavailable.")}
+
+    def _scientific_audit(
+        self,
+        *,
+        electronic_result: dict[str, Any],
+        active_space: dict[str, Any],
+        hamiltonian: dict[str, Any],
+        mapped_hamiltonian: dict[str, Any],
+        vqe_result: dict[str, Any],
+        initial_occupied_qubits: list[int],
+        fci_reference: dict[str, Any],
+    ) -> dict[str, Any]:
+        target_electrons = int(active_space["active_electrons"])
+        hf_state = self.vqe_service._statevector(
+            mapped_hamiltonian["qubit_count"], 0, [], initial_occupied_qubits,
+        )
+        hf_determinant_energy = self.vqe_service._measure_pauli_terms(
+            mapped_hamiltonian["qubit_count"], mapped_hamiltonian["pauli_terms"], [], 0, initial_occupied_qubits,
+        )["energy_hartree"]
+        exact_energy: float | None
+        try:
+            exact_energy = self.vqe_service.exact_ground_energy(mapped_hamiltonian["qubit_count"], mapped_hamiltonian["pauli_terms"])
+        except (AttributeError, ValueError):
+            exact_energy = None
+        hf_energy = float(electronic_result["hf_total_energy_hartree"])
+        zero_energy = vqe_result.get("zero_parameter_energy_hartree")
+        particle_expectation = vqe_result.get("particle_number_expectation")
+        particle_variance = vqe_result.get("particle_number_variance")
+        fci_energy = fci_reference.get("energy_hartree")
+        vqe_energy = float(vqe_result["final_energy_hartree"])
+        issues: list[dict[str, str]] = []
+        numerical_tolerance = 1e-8
+        if abs(hf_determinant_energy - hf_energy) > numerical_tolerance:
+            issues.append({"code": "hf_determinant_mismatch", "message": "The active-space HF determinant energy does not match the PySCF HF reference."})
+        if zero_energy is None or abs(float(zero_energy) - hf_determinant_energy) > numerical_tolerance:
+            issues.append({"code": "zero_parameter_hf_mismatch", "message": "The zero-parameter ansatz does not restore the HF determinant."})
+        if particle_expectation is None or abs(float(particle_expectation) - target_electrons) > numerical_tolerance:
+            issues.append({"code": "particle_number_mismatch", "message": "The VQE final state does not have the target electron number."})
+        if particle_variance is None or abs(float(particle_variance)) > numerical_tolerance:
+            issues.append({"code": "particle_number_variance_nonzero", "message": "The VQE final state has non-zero particle-number variance."})
+        if exact_energy is not None and fci_energy is not None and abs(exact_energy - float(fci_energy)) > numerical_tolerance:
+            issues.append({"code": "qubit_fci_mismatch", "message": "The mapped qubit Hamiltonian ground energy does not match active-space FCI."})
+        if vqe_energy > hf_determinant_energy + numerical_tolerance:
+            issues.append({"code": "variational_hf_bound_not_reached", "message": "Optimized VQE energy is above the HF determinant energy."})
+        vqe_fci_error = abs(vqe_energy - float(fci_energy)) if fci_energy is not None else None
+        if vqe_fci_error is not None and vqe_fci_error > CHEMICAL_ACCURACY_THRESHOLD_HARTREE:
+            issues.append({"code": "chemical_accuracy_not_reached", "message": "VQE-FCI error exceeds the published chemical-accuracy threshold."})
+        if not vqe_result["converged"]:
+            issues.append({"code": "optimizer_not_converged", "message": "The optimizer did not report convergence."})
+        status = "passed" if not issues else "needs_review"
+        return {
+            "status": status, "target_electron_count": target_electrons,
+            "particle_number_expectation": particle_expectation, "particle_number_variance": particle_variance,
+            "hf_reference_energy_hartree": hf_energy, "hf_determinant_energy_hartree": hf_determinant_energy,
+            "zero_parameter_energy_hartree": zero_energy, "first_objective_energy_hartree": vqe_result.get("first_objective_energy_hartree"),
+            "hf_reference_error_hartree": abs(hf_determinant_energy - hf_energy),
+            "fci_reference_energy_hartree": fci_energy, "exact_qubit_ground_energy_hartree": exact_energy,
+            "vqe_fci_error_hartree": vqe_fci_error, "chemical_accuracy_threshold_hartree": CHEMICAL_ACCURACY_THRESHOLD_HARTREE,
+            "chemical_accuracy_reached": vqe_fci_error is not None and vqe_fci_error <= CHEMICAL_ACCURACY_THRESHOLD_HARTREE,
+            "variational_bound_satisfied": vqe_energy <= hf_determinant_energy + numerical_tolerance,
+            "minimum_consistency_status": None, "core_energy_hartree": float(hamiltonian["core_energy_hartree"]),
+            "active_electrons": target_electrons, "active_orbitals": list(active_space["orbital_indices"]),
+            "qubit_ordering": "Jordan-Wigner spin orbitals: 2*p=alpha(p), 2*p+1=beta(p); q0 is least-significant statevector bit.",
+            "spin_square": electronic_result.get("spin_square"), "expected_spin_square": electronic_result.get("expected_spin_square"),
+            "spin_contamination": electronic_result.get("spin_contamination"), "issues": issues,
+        }
+
     @staticmethod
     def _select_active_space(electronic_result: dict[str, Any], requested_orbitals: int | None) -> dict[str, Any]:
         valid_candidates = [
@@ -714,6 +871,20 @@ class MoleculeWorkflowService:
                 "virtual_node_mapping",
                 422,
             )
+        requested_qpus = request.get("virtual_qpus")
+        if requested_qpus is not None:
+            if len(requested_qpus) != partition_count:
+                raise MoleculeWorkflowError(
+                    "physical_chip_assignment_mismatch",
+                    "虚拟芯片数量必须与分区数量一致。",
+                    "virtual_node_mapping",
+                    422,
+                )
+            # The existing mapper operates on ordinal topology nodes T1..Tn.
+            # Preserve its placement choice but project those ordinals onto the
+            # caller's stable virtual-QPU identifiers before routing.
+            ordinal_to_qpu = {f"T{index + 1}": item["virtual_qpu_id"] for index, item in enumerate(requested_qpus)}
+            mapping = {ordinal_to_qpu.get(node, node): partition for node, partition in mapping.items()}
         partition_lookup = {
             f"P{index + 1}": partition for index, partition in enumerate(partition_result["partitions"])
         }

@@ -192,6 +192,91 @@ class MoleculeWorkflowRecord(Base):
     )
 
 
+class MolecularProblemRecord(Base):
+    """One PySCF/Hamiltonian/VQE result reused by deployment evaluations."""
+
+    __tablename__ = "molecular_problems"
+    problem_id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    molecule_name = Column(String(120), nullable=False, index=True)
+    status = Column(String(32), nullable=False, default="queued", index=True)
+    request_json = Column(JSON, nullable=False, default=dict)
+    result_json = Column(JSON, nullable=True)
+    error_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+
+class DeploymentStudyRecord(Base):
+    """Async multi-architecture deployment assessment for one molecular problem."""
+
+    __tablename__ = "deployment_studies"
+    study_id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    problem_id = Column(String(64), ForeignKey("molecular_problems.problem_id"), nullable=False, index=True)
+    status = Column(String(32), nullable=False, default="queued", index=True)
+    request_json = Column(JSON, nullable=False, default=dict)
+    result_json = Column(JSON, nullable=True)
+    error_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+
+class DeploymentEvaluationRecord(Base):
+    """One independently routed/distributed execution for a proposed architecture."""
+
+    __tablename__ = "deployment_evaluations"
+    evaluation_id = Column(String(64), primary_key=True)
+    study_id = Column(String(64), ForeignKey("deployment_studies.study_id"), nullable=False, index=True)
+    architecture_id = Column(String(64), nullable=False)
+    status = Column(String(32), nullable=False, default="queued", index=True)
+    request_json = Column(JSON, nullable=False, default=dict)
+    result_json = Column(JSON, nullable=True)
+    error_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+
+class MolecularBondScanRecord(Base):
+    """Persisted asynchronous LiH bond-length scan."""
+
+    __tablename__ = "molecular_bond_scans"
+    __table_args__ = (
+        UniqueConstraint("user_id", "idempotency_key", name="uq_molecular_bond_scan_user_idempotency"),
+    )
+
+    scan_id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    idempotency_key = Column(String(128), nullable=True)
+    request_json = Column(JSON, nullable=False, default=dict)
+    status = Column(String(32), nullable=False, default="queued", index=True)
+    current_stage = Column(String(64), nullable=False, default="input_validation")
+    result_json = Column(JSON, nullable=True)
+    error_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+
+class MolecularBondScanPointRecord(Base):
+    """Independently durable result for one deterministic LiH distance point."""
+
+    __tablename__ = "molecular_bond_scan_points"
+    __table_args__ = (UniqueConstraint("scan_id", "point_index", name="uq_molecular_bond_scan_point"),)
+
+    point_id = Column(String(64), primary_key=True)
+    scan_id = Column(String(64), ForeignKey("molecular_bond_scans.scan_id"), nullable=False, index=True)
+    point_index = Column(Integer, nullable=False)
+    distance_angstrom = Column(Float, nullable=False)
+    molecular_problem_id = Column(String(64), nullable=True, index=True)
+    status = Column(String(32), nullable=False, default="queued", index=True)
+    validation_status = Column(String(32), nullable=True)
+    result_json = Column(JSON, nullable=True)
+    error_json = Column(JSON, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+
 class StructureFileRecord(Base):
     """Persist a user-owned source structure file and its parse lifecycle."""
 

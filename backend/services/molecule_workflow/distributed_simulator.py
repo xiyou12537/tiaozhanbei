@@ -21,7 +21,11 @@ class LogicalVirtualQPUSimulator:
     """
 
     _RY_PATTERN = re.compile(r"ry\(([^)]+)\)\s+q\[(\d+)]\s*;")
+    _RZ_PATTERN = re.compile(r"rz\(([^)]+)\)\s+q\[(\d+)]\s*;")
     _X_PATTERN = re.compile(r"x\s+q\[(\d+)]\s*;")
+    _H_PATTERN = re.compile(r"h\s+q\[(\d+)]\s*;")
+    _S_PATTERN = re.compile(r"s\s+q\[(\d+)]\s*;")
+    _SDG_PATTERN = re.compile(r"sdg\s+q\[(\d+)]\s*;")
     _CX_PATTERN = re.compile(r"cx\s+q\[(\d+)]\s*,\s*q\[(\d+)]\s*;")
 
     def execute(
@@ -63,19 +67,9 @@ class LogicalVirtualQPUSimulator:
             actual_routed_plan_consumption = False
             final_layouts = None
         for gate_index, operation in enumerate(operations if routed_execution_plan is None else []):
-            if operation["gate"] == "x":
+            if operation["gate"] in {"x", "h", "s", "sdg", "ry", "rz"}:
                 qubit = operation["qubits"][0]
-                matrix = np.asarray([[0, 1], [1, 0]], dtype=complex)
-                state = self._apply_matrix(state, matrix, [qubit_to_axis[qubit]])
-                local_gate_count += 1
-                continue
-            if operation["gate"] == "ry":
-                qubit = operation["qubits"][0]
-                angle = operation["angle"]
-                cosine = math.cos(angle / 2.0)
-                sine = math.sin(angle / 2.0)
-                matrix = np.asarray([[cosine, -sine], [sine, cosine]], dtype=complex)
-                state = self._apply_matrix(state, matrix, [qubit_to_axis[qubit]])
+                state = self._apply_matrix(state, self._single_qubit_matrix(operation["gate"], operation.get("angle")), [qubit_to_axis[qubit]])
                 local_gate_count += 1
                 continue
 
@@ -154,7 +148,7 @@ class LogicalVirtualQPUSimulator:
                     raise DistributedSimulationError("routed_execution_plan_invalid_swap")
                 self._swap_layout(current_layouts[partition_ids[0]], physical_qubits[0], physical_qubits[1])
                 local_gate_count += 1
-            elif operation in {"x", "ry", "cx"} and step.get("scope") == "intra_qpu":
+            elif operation in {"x", "h", "s", "sdg", "ry", "rz", "cx"} and step.get("scope") == "intra_qpu":
                 if len(partition_ids) != 1:
                     raise DistributedSimulationError("routed_execution_plan_invalid_intra_qpu_gate")
                 layout = current_layouts[partition_ids[0]]
@@ -162,15 +156,8 @@ class LogicalVirtualQPUSimulator:
                 resolved_logical = [reverse_layout.get(physical) for physical in physical_qubits]
                 if None in resolved_logical or resolved_logical != logical_qubits:
                     raise DistributedSimulationError("routed_execution_plan_layout_mismatch")
-                if operation == "x":
-                    state = self._apply_matrix(state, np.asarray([[0, 1], [1, 0]], dtype=complex), [qubit_to_axis[logical_qubits[0]]])
-                elif operation == "ry":
-                    angle = float(step["angle"])
-                    matrix = np.asarray(
-                        [[math.cos(angle / 2.0), -math.sin(angle / 2.0)], [math.sin(angle / 2.0), math.cos(angle / 2.0)]],
-                        dtype=complex,
-                    )
-                    state = self._apply_matrix(state, matrix, [qubit_to_axis[logical_qubits[0]]])
+                if operation != "cx":
+                    state = self._apply_matrix(state, self._single_qubit_matrix(operation, step.get("angle")), [qubit_to_axis[logical_qubits[0]]])
                 else:
                     if step.get("physical_edge_is_valid") is not True:
                         raise DistributedSimulationError("routed_execution_plan_invalid_physical_edge")
@@ -209,6 +196,18 @@ class LogicalVirtualQPUSimulator:
                 for partition_id, layout in sorted(current_layouts.items())
             },
         }
+
+    @staticmethod
+    def _single_qubit_matrix(operation: str, angle: float | None = None) -> np.ndarray:
+        if operation == "x": return np.asarray([[0, 1], [1, 0]], dtype=complex)
+        if operation == "h": return np.asarray([[1, 1], [1, -1]], dtype=complex) / math.sqrt(2.0)
+        if operation == "s": return np.asarray([[1, 0], [0, 1j]], dtype=complex)
+        if operation == "sdg": return np.asarray([[1, 0], [0, -1j]], dtype=complex)
+        if operation == "ry":
+            value = float(angle); return np.asarray([[math.cos(value / 2), -math.sin(value / 2)], [math.sin(value / 2), math.cos(value / 2)]], dtype=complex)
+        if operation == "rz":
+            value = float(angle); return np.asarray([[np.exp(-0.5j * value), 0], [0, np.exp(0.5j * value)]], dtype=complex)
+        raise DistributedSimulationError("routed_execution_plan_unsupported_operation")
 
     @staticmethod
     def _normalise_layouts(value: Any) -> dict[str, dict[int, int]]:
@@ -291,9 +290,22 @@ class LogicalVirtualQPUSimulator:
                     }
                 )
                 continue
+            rz_match = self._RZ_PATTERN.fullmatch(line)
+            if rz_match:
+                operations.append({"gate": "rz", "angle": float(rz_match.group(1)), "qubits": [int(rz_match.group(2))]})
+                continue
             x_match = self._X_PATTERN.fullmatch(line)
             if x_match:
                 operations.append({"gate": "x", "qubits": [int(x_match.group(1))]})
+                continue
+            matched_single = False
+            for gate, pattern in (("h", self._H_PATTERN), ("s", self._S_PATTERN), ("sdg", self._SDG_PATTERN)):
+                single_match = pattern.fullmatch(line)
+                if single_match:
+                    operations.append({"gate": gate, "qubits": [int(single_match.group(1))]})
+                    matched_single = True
+                    break
+            if matched_single:
                 continue
             cx_match = self._CX_PATTERN.fullmatch(line)
             if cx_match:

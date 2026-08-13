@@ -121,7 +121,7 @@ def _validate_idempotency_key(idempotency_key: str | None) -> str | None:
     "/capabilities",
     response_model=MoleculeWorkflowCapabilitiesResponse,
     summary="查询分子 Workflow 的逻辑虚拟 QPU 能力边界",
-    responses={401: ERROR_RESPONSES[401]},
+    responses=ERROR_RESPONSES,
 )
 def get_molecule_workflow_capabilities(user: User = Depends(get_current_user)):
     del user
@@ -180,7 +180,7 @@ def create_molecule_workflow(
     "",
     response_model=MoleculeWorkflowHistoryResponse,
     summary="查询当前用户的分子 Workflow 历史",
-    responses={401: ERROR_RESPONSES[401]},
+    responses=ERROR_RESPONSES,
 )
 def list_molecule_workflows(
     user: User = Depends(get_current_user),

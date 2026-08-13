@@ -12,7 +12,7 @@ class ChipRoutingError(RuntimeError):
 
 
 _QREG = re.compile(r"qreg\s+q\[(\d+)]\s*;")
-_SINGLE = re.compile(r"(x|ry\([^)]+\))\s+q\[(\d+)]\s*;")
+_SINGLE = re.compile(r"(x|h|s|sdg|ry\([^)]+\)|rz\([^)]+\))\s+q\[(\d+)]\s*;")
 _CX = re.compile(r"cx\s+q\[(\d+)]\s*,\s*q\[(\d+)]\s*;")
 
 
@@ -258,8 +258,9 @@ def _parse_qasm(qasm_content: str) -> list[dict[str, Any]]:
         single = _SINGLE.fullmatch(line)
         if single:
             gate = single.group(1)
-            angle = float(gate[3:-1]) if gate.startswith("ry(") else None
-            operations.append({"gate": "ry" if angle is not None else gate, "qubits": [int(single.group(2))], "angle": angle})
+            angle = float(gate[3:-1]) if gate.startswith(("ry(", "rz(")) else None
+            operation_name = gate[:2] if angle is not None else gate
+            operations.append({"gate": operation_name, "qubits": [int(single.group(2))], "angle": angle})
             continue
         raise ChipRoutingError(f"unsupported_qasm_for_routing:{line}")
     return operations
