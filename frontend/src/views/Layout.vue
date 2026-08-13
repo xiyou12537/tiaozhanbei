@@ -62,11 +62,15 @@ const identityInitial = computed(() => identityLabel.value.charAt(0).toUpperCase
 const navItems = [
   { index: '01', path: '/app/molecules', title: '新建分子计算', desc: '几何、VQE 与路由' },
   { index: '02', path: '/app/molecule-workflows', title: '计算任务', desc: '状态、质量与结果' },
-  { index: '03', path: '/app/simulation-capabilities', title: '模拟能力说明', desc: '能力边界与执行语义' },
+  { index: '03', path: '/app/molecular-studies/new', title: '部署评估', desc: '多架构路由与能量验证' },
+  { index: '04', path: '/app/molecular-bond-scans/new', title: '势能扫描', desc: 'LiH 键长与离散势能曲线' },
+  { index: '05', path: '/app/simulation-capabilities', title: '模拟能力说明', desc: '能力边界与执行语义' },
 ]
 
 function isActive(path) {
   if (path === '/app/molecule-workflows') return route.path.startsWith('/app/molecule-workflows')
+  if (path === '/app/molecular-studies/new') return route.path.startsWith('/app/molecular-studies')
+  if (path === '/app/molecular-bond-scans/new') return route.path.startsWith('/app/molecular-bond-scans')
   return route.path === path
 }
 

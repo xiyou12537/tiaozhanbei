@@ -13,6 +13,7 @@
         <div><span class="page-kicker">ENERGY & QUALITY STATUS</span><h3>{{ validationTitle }}</h3><p>{{ validationText }}</p></div>
         <div class="status-pair"><span>执行状态</span><strong>{{ executionLabel }}</strong><span>质量状态</span><strong>{{ result.validation_status || '—' }}</strong></div>
       </section>
+      <ScientificValidationPanels :optimizer-validation="result.optimizer_validation" :scientific-validation="result.scientific_validation" :deployment-validation="result.deployment_validation" :versions="versions" />
 
       <section v-if="result.validation_issues?.length" class="result-panel validation-issues">
         <div class="section-head"><div><span class="section-index">QUALITY ISSUES</span><h3>复核问题</h3></div></div>
@@ -46,6 +47,7 @@
         <div class="section-head"><div><span class="section-index">05 / VQE</span><h3>VQE 优化与线路</h3></div><span>{{ result.vqe?.converged ? '已收敛' : '未收敛' }}</span></div>
         <div class="optimizer-banner"><div><span>优化器</span><strong>{{ value(result.vqe?.optimizer) }}</strong></div><div><span>优化器终止状态</span><strong>{{ optimizerStatus }}</strong></div><div><span>终止原因</span><strong>{{ value(result.vqe?.optimizer_diagnostics?.termination_reason) }}</strong></div><div><span>目标函数评估次数</span><strong>{{ value(result.vqe?.optimizer_diagnostics?.nfev) }}</strong></div><div><span>最佳迭代</span><strong>{{ value(result.vqe?.optimizer_diagnostics?.best_iteration) }}</strong></div><div><span>能量变化</span><strong>{{ recentEnergyChanges }}</strong></div></div>
         <div class="vqe-layout"><div class="energy-history"><h4>迭代能量曲线</h4><svg v-if="historyPoints" viewBox="0 0 720 260" preserveAspectRatio="none" aria-label="VQE 迭代能量曲线"><line x1="40" y1="220" x2="700" y2="220"/><line x1="40" y1="25" x2="40" y2="220"/><polyline :points="historyPoints"/><circle v-for="point in historyDots" :key="point.iteration" :cx="point.x" :cy="point.y" r="4"><title>迭代 {{ point.iteration }}：{{ point.energy }}</title></circle></svg><p v-else>—</p></div><div class="qasm-block"><h4>最终 QASM</h4><pre>{{ result.vqe?.qasm || '—' }}</pre></div></div>
+        <ParticleConservingCircuitLegend :ansatz="result.vqe?.ansatz" :qasm="result.vqe?.qasm" :routed-plan="routing.routedPlan" />
       </section>
 
       <section class="result-panel partition-panel">
@@ -93,13 +95,18 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getMoleculeWorkflow, moleculeWorkflowExecutionMeta, normalizeMoleculeRoutingResult, normalizeMoleculeWorkflowError, stageLabel } from '../services/moleculeWorkflowService'
 import { saveRecentMoleculeWorkflow } from '../services/moleculeWorkflowStorage'
+import ScientificValidationPanels from '../components/ScientificValidationPanels.vue'
+import ParticleConservingCircuitLegend from '../components/ParticleConservingCircuitLegend.vue'
+import { implementationVersions, workflowExecutionHeadline } from '../services/scientificValidationService.js'
 
 const route=useRoute();const loading=ref(false);const result=ref(null);const loadError=ref(null)
 const routing=computed(()=>normalizeMoleculeRoutingResult(result.value))
+const versions=computed(()=>implementationVersions(result.value || {}))
 const executionLabel=computed(()=>moleculeWorkflowExecutionMeta(result.value?.status).label)
-const validationTitle=computed(()=>result.value?.validation_status==='passed'?'计算通过':result.value?.validation_status==='needs_review'?'计算完成，需要复核':'计算已完成，质量状态待确认')
-const validationText=computed(()=>result.value?.validation_status==='passed'?'Workflow 执行完成，服务端质量校验通过。':result.value?.validation_status==='needs_review'?'阶段执行与结果保存已经完成；完整结果可查看，但请按问题清单复核。':'执行完成不等于质量通过。')
-const validationClass=computed(()=>result.value?.validation_status==='passed'?'passed':result.value?.validation_status==='needs_review'?'review':'unknown')
+const legacyHeadline=computed(()=>workflowExecutionHeadline(result.value?.status,result.value?.validation_status))
+const validationTitle=computed(()=>legacyHeadline.value.title)
+const validationText=computed(()=>legacyHeadline.value.message)
+const validationClass=computed(()=>result.value?.status==='completed'?'unknown':result.value?.status==='failed'?'review':'unknown')
 const optimizerStatus=computed(()=>{const d=result.value?.vqe?.optimizer_diagnostics;if(!d)return '—';return `${d.scipy_success?'已正常终止':'未正常终止'}${d.scipy_status===null||d.scipy_status===undefined?'':` · ${d.scipy_status}`}`})
 const recentEnergyChanges=computed(()=>{const changes=result.value?.vqe?.optimizer_diagnostics?.recent_energy_changes_hartree;return Array.isArray(changes)&&changes.length?changes.map(x=>number(x,10)).join(' · '):'—'})
 const historyDots=computed(()=>{const history=result.value?.vqe?.iteration_history||[];if(!history.length)return[];const energies=history.map(item=>Number(item.energy_hartree));const min=Math.min(...energies),max=Math.max(...energies),range=max-min||1;return history.map((item,index)=>({iteration:item.iteration,energy:item.energy_hartree,x:40+(history.length===1?330:index*660/(history.length-1)),y:25+(max-Number(item.energy_hartree))*195/range}))})

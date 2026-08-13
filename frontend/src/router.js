@@ -8,6 +8,10 @@ const AuthPage = () => import('./views/AuthPage.vue')
 const MoleculesPage = () => import('./views/MoleculesPage.vue')
 const MoleculeWorkflowHistoryPage = () => import('./views/MoleculeWorkflowHistoryPage.vue')
 const MoleculeWorkflowResultPage = () => import('./views/MoleculeWorkflowResultPage.vue')
+const MolecularStudyCreatePage = () => import('./views/MolecularStudyCreatePage.vue')
+const MolecularStudyResultPage = () => import('./views/MolecularStudyResultPage.vue')
+const MolecularBondScanCreatePage = () => import('./views/MolecularBondScanCreatePage.vue')
+const MolecularBondScanResultPage = () => import('./views/MolecularBondScanResultPage.vue')
 const SimulationCapabilitiesPage = () => import('./views/SimulationCapabilitiesPage.vue')
 
 const routes = [
@@ -29,6 +33,10 @@ const routes = [
       { path: 'molecules', component: MoleculesPage, meta: { title: '新建分子计算', eyebrow: 'Create workflow' } },
       { path: 'molecule-workflows', component: MoleculeWorkflowHistoryPage, meta: { title: '计算任务', eyebrow: 'Workflow ledger' } },
       { path: 'molecule-workflows/:workflowId', component: MoleculeWorkflowResultPage, meta: { title: 'Workflow 结果', eyebrow: 'Execution evidence' } },
+      { path: 'molecular-studies/new', component: MolecularStudyCreatePage, meta: { title: '新建部署评估', eyebrow: 'Deployment study' } },
+      { path: 'molecular-studies/:studyId', component: MolecularStudyResultPage, meta: { title: '部署评估报告', eyebrow: 'Deployment report' } },
+      { path: 'molecular-bond-scans/new', component: MolecularBondScanCreatePage, meta: { title: '新建势能扫描', eyebrow: 'Potential energy scan' } },
+      { path: 'molecular-bond-scans/:scanId', component: MolecularBondScanResultPage, meta: { title: '势能扫描结果', eyebrow: 'Bond scan report' } },
       { path: 'simulation-capabilities', component: SimulationCapabilitiesPage, meta: { title: '模拟能力说明', eyebrow: 'Capability contract' } },
     ],
   },
