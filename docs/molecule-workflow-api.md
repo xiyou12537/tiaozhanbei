@@ -147,6 +147,30 @@ docker build -t liangzhi-qchem:local backend/quantum_chemistry_adapter
 
 ## Execution status and scientific validation
 
+## Scientific audit (P1.1)
+
+New calculations retain `contract_version: "2.0"` for additive compatibility
+and identify their scientific artifact with `vqe.ansatz`,
+`vqe.ansatz_version`, `vqe.simulator_version`,
+`hamiltonian_builder_version`, and `scientific_validation_version`.
+
+The default VQE ansatz is `uccsd_particle_conserving_pauli` version `1.0`.
+It applies spin-conserving singles
+`exp(theta/2 (a†_p a_q - a†_q a_p))` and paired doubles
+`exp(theta/2 (a†_r a†_s a_q a_p - h.c.))`. Their Jordan--Wigner Pauli
+rotations compile only to `H`, `S`, `SDG`, `RZ`, and `CX`. Therefore zero
+parameters exactly preserve the Hartree--Fock determinant and all parameters
+preserve particle number. The same gate semantics are used by unpartitioned
+simulation, QASM parsing, routing and logical distributed simulation.
+
+Results expose three independent conclusions: `optimizer_validation`,
+`scientific_validation`, and `deployment_validation`. The deprecated legacy
+`validation_status` remains optimizer-only for existing consumers; it must not
+be interpreted as scientific acceptance. `scientific_validation` reports the
+HF determinant/zero-parameter checks, exact qubit diagonalization, same-active
+space FCI, particle-number expectation/variance, the real VQE--FCI error and
+the public `chemical_accuracy_threshold_hartree: 1.6e-3`.
+
 `status: "completed"` means every workflow stage finished and the complete result
 was persisted. It does not mean that the scientific result has passed convergence
 validation. `validation_status` is `passed` only when VQE reports convergence;
@@ -228,6 +252,29 @@ P0.1; `dense_greedy` is intentionally not exposed.
 For UI routing visualisation, use the zero-SWAP full response fixture above and
 the [forced-SWAP execution-plan fixture](fixtures/molecule-workflow-v2-h2-forced-swap-success.json).
 
+## Molecular deployment studies
+
+`POST /api/molecular-studies` is an authenticated asynchronous API. It accepts
+the existing molecule/VQE request fields plus at least three unique
+`architectures`, each containing an `architecture_id` and a full `partition`
+topology/virtual-chip request. It returns `202` with `study_id` and `problem_id`.
+`GET /api/molecular-studies/{study_id}` restores the persisted study for its
+owner only.
+
+The service persists three layers: a `MolecularProblem` with one PySCF,
+Hamiltonian mapping and VQE/QASM result; a `DeploymentStudy`; and one
+`DeploymentEvaluation` per architecture. Every evaluation independently runs
+partitioning, virtual-node mapping, physical routing and routed-plan logical
+simulation. It reports deployability/failure, partition scale, SWAP count,
+cross-QPU communication, original/routed operation counts, native two-qubit
+equivalent cost, independently computed distributed energy/error, and routed
+plan consumption evidence.
+
+`vqe_fci_scientific_error_hartree` is currently `null` unless a constrained
+active-space FCI runtime is configured. It is intentionally separate from
+`distributed_vqe_vqe_execution_error_hartree`; the latter is never populated by
+copying the unpartitioned VQE energy.
+
 When the physical capacity is too small or no path exists, POST returns the
 normal 422 business error shape with `physical_qubit_insufficient` or
 `physical_coupling_disconnected`, stage `chip_topology_routing`. Existing
@@ -237,4 +284,53 @@ and routing fields as `null` rather than failing GET.
 The front-end-ready full H2 success fixture is
 [`docs/fixtures/molecule-workflow-v2-h2-success.json`](fixtures/molecule-workflow-v2-h2-success.json).
 It represents virtual-node logical distributed simulation only, never real-QPU
+execution.
+
+## Molecular Study API contract (P0.1.1)
+
+`POST /api/molecular-studies` and `GET /api/molecular-studies/{study_id}` both
+require `Authorization: Bearer <token>`. A submission contains the normal
+molecular request plus at least three unique `architectures`; POST returns
+`202 Accepted`. New clients must use `molecular_problem_id`. `problem_id` is a
+deprecated compatibility alias only.
+
+Study status is exactly `queued | running | completed | failed`. Continue
+polling for `queued` and `running`, and stop for `completed` and `failed`.
+During queued/running states `result` is a stable, typed partial skeleton:
+`molecular_problem`, `deployment_evaluations`, and `summary` are always present
+while fields not yet calculated are `null`. A Study can be `completed` with a
+mix of deployable and non-deployable architectures. Only failure of the shared
+molecular problem, scheduling, or an unrecoverable Study-level error yields
+Study `failed`; an individual architecture runtime error is
+`evaluation.status=failed`, `is_deployable=null` and does not alone fail its
+parent Study.
+
+The OpenAPI components are `MolecularStudyAcceptedResponse`,
+`MolecularStudyResponse`, `MolecularStudyResult`, `MolecularProblemResult`,
+`DeploymentEvaluationResult`, `MolecularStudySummary`, and
+`MolecularStudyErrorResponse`. `MolecularStudyResponse.result` is explicitly
+`MolecularStudyResult | null`, not an unstructured object. `MolecularProblemResult`
+contains the full typed molecule/HF/active-space/Hamiltonian/VQE data, QASM and
+iteration history. Its FCI object always has `status`, `method`,
+`energy_hartree`, and `message`; when FCI is not configured the status is
+`not_configured` and both energy fields are `null` (never zero).
+
+Each `DeploymentEvaluationResult` reports the architecture, partition summary,
+separate routing/communication metrics, independent energy validation, and the
+reused typed `DistributionResult` evidence (`routed_execution_plan`, routing
+evidence, communication events, consumption flags, final layout, and state
+norm). Capacity or coupling-topology rejections are a business result:
+`status=completed`, `is_deployable=false`, and a typed `failure_reason`.
+
+The endpoint OpenAPI provides examples for the POST `202` response, running,
+completed, failed, `401`, `404`, FastAPI request-validation `422` (detail array),
+business `422` (typed detail object), and `503`. Background PySCF/VQE errors
+after a request has been accepted are observed by `GET 200` with
+`status=failed`; `503` is reserved for an unavailable scheduler/query service.
+
+The schema-validated three-architecture H2 fixture records real execution
+metadata from Study `study_b98937370e114449827c06e176beae59`, including the
+zero-SWAP and forced-SWAP architectures:
+[`docs/fixtures/molecular-study-h2-three-architecture-success.json`](fixtures/molecular-study-h2-three-architecture-success.json).
+It is logical virtual-QPU simulation (`is_real_qpu: false`), not real-QPU
 execution.

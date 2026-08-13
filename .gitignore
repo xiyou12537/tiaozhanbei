@@ -47,3 +47,5 @@ frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
 *.local
+# Local, user-owned quantum runtime outputs are not source fixtures.
+/tmp/

@@ -1,498 +1,173 @@
-# 量智硫光
+# 分子量子分布式计算平台
 
-面向锂硫电池催化材料筛选的分布式量子-经典协同计算系统。
+面向小分子量子化学计算与逻辑分布式量子执行证据展示的本地平台。当前产品主线是从分子结构构建 Hamiltonian、执行 VQE、进行量子线路分区与路由，到逻辑虚拟 QPU 模拟及结果验证；不再以旧材料研究业务为产品能力主线。
 
-本系统以锂硫电池多硫化锂转化反应为应用场景，将材料候选库、经典粗筛、量子化学建模、分布式量子线路编译、模拟执行、综合评分和 AI 助手整合到一个可操作的平台中，用于辅助筛选潜在高性能催化材料。
+## 执行边界
 
-## 系统能做什么
-
-当前版本已经支持以下核心能力：
-
-1. 用户注册、登录与会话管理
-2. 多材料候选筛选 workflow
-3. 经典粗筛结果展示
-4. 量子精修结果展示
-5. 材料排行榜与推荐解释
-6. 历史筛选任务回看
-7. 分布式量子线路分区与芯片映射能力展示
-8. AI 助手与知识库检索能力
-9. 后端 API 文档与健康检查
-
-当前材料筛选入口以“内置候选材料库”为主，支持从候选材料中选择多个材料进入筛选流程。系统同时支持用户上传材料结构文件，进行结构解析、活性位点确认、Li2Sx 初始吸附构型、局部量子区和模拟器 VQE 建模；真实 DFT 计算须由经批准的外部或本地计算环境完成。
-
-## 适用用户
-
-本系统面向以下使用者：
-
-1. 锂硫电池催化材料研究人员
-2. 材料计算与量子化学方向学生
-3. 量子计算应用开发人员
-4. 需要演示量子-经典协同筛选流程的项目团队
-5. 挑战杯、创新创业比赛或科研原型展示场景
-
-## 核心流程
-
-一次标准材料筛选流程如下：
+所有当前计算任务均使用以下服务端契约：
 
 ```text
-登录系统
--> 进入多材料筛选页面
--> 选择至少 3 个候选材料
--> 创建筛选任务
--> 查看经典粗筛结果
--> 查看量子精修结果
--> 查看材料排行榜
--> 查看推荐理由、风险提示和证据链
--> 在历史页面回看筛选结果
+execution_mode = logical_virtual_qpu
+is_real_qpu = false
 ```
 
-系统内部对应的计算链路为：
+这表示系统执行的是虚拟节点的逻辑分布式模拟，不连接或调度实际量子硬件。Workflow、Molecular Study 和 LiH Bond Scan 的完成状态均不能解释为真实 QPU 执行。
 
-```text
-候选材料输入
--> 经典指标评估
--> 化学模型构建
--> 量子问题编码
--> 分布式量子线路编译
--> 模拟器执行
--> 量子精修评分
--> 综合排序与解释生成
-```
+## 当前功能
 
-## 当前材料筛选说明
+- 单分子 Workflow：创建分子计算任务，展示分子、Hamiltonian、VQE、分区、映射、路由和逻辑分布式模拟的阶段性证据。
+- 计算任务历史：查看已创建的 Workflow，并按任务 ID 恢复结果页。
+- Molecular Study 多架构评估：对多个虚拟 QPU 架构进行分区、映射、路由和能量验证对比。
+- LiH Bond Scan：提交 LiH 键长扫描，查看离散 HF、VQE、科学验证 VQE 和 FCI 能量曲线、最低点以及部署评估。
+- 三类独立验证：
+  - 优化器验证：VQE 优化过程、收敛与诊断证据；
+  - 科学验证：VQE 与参考能量、粒子数及相关科学诊断；
+  - 部署验证：虚拟 QPU 分区、逻辑映射、SWAP 路由、跨 QPU 通信和逻辑分布式模拟证据。
 
-当前版本的材料来源主要是后端内置候选材料库，例如：
+LiH Bond Scan 的部署参考点严格区分三态：`engineering_only_deployment=true` 表示仅工程部署证据，`false` 表示科学验证点部署，`null` 表示尚未记录或尚未形成部署依据；`null` 不等同于 `false`。
 
-| 材料 | 类型 | 活性位点 |
-| --- | --- | --- |
-| Fe-N4/C | 单原子 M-N-C 催化剂 | Fe-N4 |
-| Co-N4/C | 单原子 M-N-C 催化剂 | Co-N4 |
-| MoS2 | 过渡金属硫化物 | Mo-edge |
-| VN | 过渡金属氮化物 | V-top |
+## 页面入口
 
-这些材料已经内置了用于演示筛选流程的结构化参数和 proxy 指标。用户可以选择多个材料并启动筛选，系统会输出经典粗筛、量子精修、排行榜和推荐解释。
+启动并登录后，可从以下前端路由进入产品功能：
 
-需要注意：
-
-1. 当前版本可以完整演示筛选闭环。
-2. 当前内置材料结果主要用于系统流程验证和比赛展示。
-3. 当前版本还不是完整 DFT 级别的科研计算平台。
-4. 自定义结构可上传、解析、构建局部量子区并接入外部 DFT 导入或 QE/CP2K 直接 DFT Adapter；本地未部署 QE/CP2K 时直接计算接口会明确报告不可用，真实科研结论仍依赖经化学负责人批准的赝势、参数与结果复核。
-
-## 自定义结构科研建模
-
-该能力不是让用户手动填写材料分数，而是让用户上传结构文件，由系统解析并推进可追溯的科研建模工作流。
-
-计划支持的上传文件包括：
-
-| 文件类型 | 示例 |
+| 功能 | 路由 |
 | --- | --- |
-| 分子结构 | `.xyz`, `.mol`, `.sdf` |
-| 晶体结构 | `.cif` |
-| VASP 结构 | `POSCAR`, `CONTCAR` |
-| 计算结果 | `OUTCAR`, `vasprun.xml`, `.log`, `.out` |
+| 账户中心 | `/auth` |
+| 新建分子计算 | `/app/molecules` |
+| 计算任务历史 | `/app/molecule-workflows` |
+| Workflow 结果 | `/app/molecule-workflows/{workflowId}` |
+| 新建 Molecular Study | `/app/molecular-studies/new` |
+| Molecular Study 报告 | `/app/molecular-studies/{studyId}` |
+| 新建 LiH Bond Scan | `/app/molecular-bond-scans/new` |
+| LiH Bond Scan 结果 | `/app/molecular-bond-scans/{scanId}` |
+| 模拟能力说明 | `/app/simulation-capabilities` |
 
-当前工作流：
+## 技术组成
 
-```text
-上传材料结构
--> 解析元素、坐标和晶胞
--> 识别或确认活性位点
--> 构建 Li2S6 / Li2S4 初始吸附模型
--> 几何预处理、导入外部 DFT 或提交直接 DFT
--> 确认电荷、自旋、量子区和活性空间
--> 构造 Hamiltonian 并执行模拟器 VQE
--> 输出 Artifact、日志、确认记录和证据链
-```
-
-核心文档：
-
-- [FeN4C66 + Li2S4 文献 Benchmark 协议](docs/fe-n4c66-li2s4-benchmark-protocol.md)
-- [科研结构建模前后端联调说明](修改意见/已完成/科研结构建模前后端联调说明.md)
-- [FeN4C66-Li2S4 文献基准导入任务](修改意见/已完成/后端-FeN4C66-Li2S4文献基准导入任务.md)
-- [科研基准案例与 DFT 接入整改需求](修改意见/已完成/后端-科研基准案例与DFT接入整改需求.md)
-- [前端科研输入与结构驱动计算结果页需求（已完成）](修改意见/已完成/前端-科研输入确认与结构驱动计算结果页需求.md)
-- [前端 FeN4C66-Li2S4 文献基准工作台需求（已完成）](修改意见/已完成/前端-FeN4C66-Li2S4文献基准工作台需求.md)
-- [前端科研模型界面去工作流化改版需求](修改意见/待完成/前端-科研模型界面去工作流化改版需求.md)
-
-## 技术架构
-
-| 层级 | 技术 |
+| 层级 | 当前实现 |
 | --- | --- |
-| 前端 | Vue 3, Vite, Element Plus, ECharts |
-| 后端 | Python, FastAPI, SQLAlchemy, SQLite |
-| 量子计算 | Qiskit, NetworkX |
-| 知识库 | 文档导入、PDF 解析、检索增强问答 |
-| 本地存储 | SQLite |
-| 可选基础设施 | PostgreSQL, Redis, RabbitMQ |
-
-## 目录结构
-
-```text
-backend/                  FastAPI 后端服务
-frontend/                 Vue 前端项目
-quantum_partitioning/     量子线路分区与映射核心算法
-data/                     本地 SQLite 数据
-docs/                     技术文档
-scripts/                  启动与辅助脚本
-修改意见/                  产品验收、整改和需求文档
-README.md                 用户说明书与核心文档入口
-```
+| 前端 | Vue 3、Vite、Vue Router、Element Plus、ECharts |
+| 后端 | Python、FastAPI、SQLAlchemy、SQLite |
+| 量子与路由 | Qiskit、NumPy、SciPy、NetworkX，以及仓库内的分区、映射和路由实现 |
+| 可选基础设施 | PostgreSQL、Redis、RabbitMQ（开发启动脚本可选择启动） |
 
 ## 环境要求
 
-建议环境：
+- Python 3.10 或更高版本
+- Node.js 18 或更高版本，以及 npm
+- 可选：Docker Desktop。生产部署和需要容器化量子化学适配器的环境还需要 Docker。
 
-1. Windows 10/11
-2. Python 3.10 或以上
-3. Node.js 18 或以上
-4. npm
+本地默认可使用 SQLite；不需要 PostgreSQL、Redis 或 RabbitMQ 即可运行同步开发流程。
 
-可选环境：
+## 安装与启动
 
-1. Docker Desktop
-2. PostgreSQL
-3. Redis
-4. RabbitMQ
+以下命令均以仓库根目录为起点，适用于 Windows PowerShell。
 
-如果只是本地演示，默认 SQLite 即可，不需要额外安装数据库。
-
-## 快速启动
-
-### 1. 安装 Python 依赖
-
-首次运行前，建议在项目根目录执行：
+### 1. 创建 Python 环境并安装后端依赖
 
 ```powershell
 python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-pip install -r backend\requirements.txt
+.\venv\Scripts\Activate.ps1
+python -m pip install -r backend\requirements.txt
+```
+
+根目录 `requirements.txt` 包含量子计算相关依赖；当本地运行场景需要这些依赖而当前环境尚未安装时，执行：
+
+```powershell
+python -m pip install -r requirements.txt
 ```
 
 ### 2. 安装前端依赖
 
 ```powershell
-cd frontend
+Set-Location frontend
 npm install
-cd ..
+Set-Location ..
 ```
 
-### 3. 启动系统
+### 3. 启动本地开发环境
 
-推荐使用平台启动脚本：
+推荐使用仓库提供的启动脚本；它会在后端 `8000`、前端 `5173` 启动服务，并检查健康状态：
 
 ```powershell
 .\scripts\start-platform-dev.ps1
 ```
 
-也可以直接双击项目根目录的 `start-system.py`，或在编辑器中运行该文件。启动器会在服务就绪后自动打开前端页面；首次运行时会按需安装缺失的前后端依赖。
-
-如果首次运行发现后端依赖缺失，可以执行：
+首次运行缺少依赖时，可让脚本安装对应依赖：
 
 ```powershell
-.\scripts\start-platform-dev.ps1 -InstallBackendDeps
+.\scripts\start-platform-dev.ps1 -InstallBackendDeps -InstallFrontendDeps
 ```
 
-如果首次运行发现前端依赖缺失，可以执行：
+需要同时启动 PostgreSQL、Redis 与 RabbitMQ，并启动队列 worker 时：
 
 ```powershell
-.\scripts\start-platform-dev.ps1 -InstallFrontendDeps
+.\scripts\start-platform-dev.ps1 -StartInfra
 ```
 
-启动成功后访问：
+启动后访问：
 
 | 服务 | 地址 |
 | --- | --- |
-| 前端系统 | `http://127.0.0.1:5173` |
-| 后端服务 | `http://127.0.0.1:8000` |
-| API 文档 | `http://127.0.0.1:8000/docs` |
-| 健康检查 | `http://127.0.0.1:8000/api/health` |
+| 前端 | `http://127.0.0.1:5173` |
+| 后端健康检查 | `http://127.0.0.1:8000/api/health` |
+| OpenAPI 文档 | `http://127.0.0.1:8000/docs` |
+| OpenAPI JSON | `http://127.0.0.1:8000/openapi.json` |
 
-## 用户使用指南
+## API 概览
 
-### 1. 注册与登录
+除健康检查和 OpenAPI 文档外，业务接口由认证会话保护。实际字段、响应模型和错误语义以运行中服务的 `/openapi.json` 为准。
 
-打开前端地址：
+| API 组 | 主要端点 |
+| --- | --- |
+| 健康检查 | `GET /api/health` |
+| 认证 | `POST /api/auth/register`、`POST /api/auth/login` |
+| 单分子 Workflow | `GET /api/molecule-workflows/capabilities`、`POST /api/molecule-workflows`、`GET /api/molecule-workflows`、`GET /api/molecule-workflows/{workflow_id}` |
+| Molecular Study | `POST /api/molecular-studies`、`GET /api/molecular-studies/{study_id}` |
+| LiH Bond Scan | `GET /api/molecular-bond-scans/capabilities`、`POST /api/molecular-bond-scans`、`GET /api/molecular-bond-scans/{scan_id}` |
 
-```text
-http://127.0.0.1:5173
-```
+创建 Workflow 和 Bond Scan 时，客户端使用 `Idempotency-Key` 保障网络重试不会重复创建同一任务。
 
-进入账号页面后：
+## 测试与构建
 
-1. 注册新账号
-2. 使用账号密码登录
-3. 登录后进入系统工作区
-
-如果访问 `/app` 页面时未登录，系统会自动跳转到登录页。
-
-### 2. 创建材料筛选任务
-
-进入：
-
-```text
-/app/screening
-```
-
-操作步骤：
-
-1. 在候选材料列表中选择至少 3 个材料
-2. 点击启动多材料筛选
-3. 等待系统创建 workflow
-4. 页面会自动拉取筛选结果
-
-创建成功后，页面会展示：
-
-1. Workflow ID
-2. 候选材料数量
-3. 推荐材料
-4. 联调链路进度
-
-### 3. 查看筛选结果
-
-筛选完成后，可以在当前页面或结果页查看：
-
-1. 材料排行榜
-2. 经典粗筛表格
-3. 量子精修卡片
-4. 推荐理由
-5. 风险提示
-6. 分数拆解
-7. 证据来源说明
-8. 下一步验证建议
-
-结果页地址：
-
-```text
-/app/results
-```
-
-如果 URL 中带有 `workflowId`，系统会打开指定筛选任务：
-
-```text
-/app/results?workflowId=<workflow_id>
-```
-
-### 4. 查看历史任务
-
-进入：
-
-```text
-/app/history
-```
-
-历史页面支持查看：
-
-1. 多材料筛选任务
-2. 推荐材料
-3. 候选材料数量
-4. 创建时间
-5. 任务状态
-6. 重新进入结果页
-
-### 5. 使用知识库和 AI 助手
-
-进入：
-
-```text
-/app/knowledge
-```
-
-当前知识库能力用于辅助用户理解系统、查询文档和进行基础问答。若配置了大模型 API，AI 助手可以结合知识库内容回答问题。
-
-环境变量示例：
-
-```env
-LLM_BASE_URL=https://api.deepseek.com/v1
-LLM_API_KEY=your-api-key
-LLM_MODEL=deepseek-chat
-```
-
-如果没有配置 `LLM_API_KEY`，AI 对话能力可能不可用，但登录、筛选、历史记录和基础系统功能仍可使用。
-
-### 6. 查看分布式量子能力
-
-进入：
-
-```text
-/app/capability
-```
-
-该页面用于展示量子线路分区、芯片映射、通信代价、分布式执行等能力，是本项目连接“材料筛选”和“分布式量子计算”的重要展示模块。
-
-## 后端 API 快速验证
-
-检查后端是否启动：
+前端脚本定义在 [`frontend/package.json`](frontend/package.json)。在 `frontend` 目录执行：
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/api/health
+npm run test:unit
+npm run test:e2e
+npm run build
 ```
 
-注册用户：
+后端测试位于 `backend/tests/`。在已安装测试依赖的 Python 环境中，从仓库根目录执行：
 
-```http
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "username": "demo_user",
-  "password": "secret123"
-}
+```powershell
+python -m pytest backend/tests
 ```
 
-登录用户：
+前端生产构建输出至 `frontend/dist/`；该目录已由 Git 忽略，不应作为源码提交。
 
-```http
-POST /api/auth/login
-Content-Type: application/json
+## 部署
 
-{
-  "username": "demo_user",
-  "password": "secret123"
-}
-```
+生产部署使用 Nginx 提供前端静态构建，并将 `/api`、`/docs`、`/redoc` 和 `/openapi.json` 代理给运行在 `127.0.0.1:8000` 的单个 Uvicorn worker。P1.2 的 SQLite 增量迁移、systemd 单 worker 限制、Nginx 配置与上线前检查均见 [`deploy/README.md`](deploy/README.md)。
 
-获取候选材料：
+部署配置仍遵守本 README 的执行边界：生产环境运行的是 `logical_virtual_qpu` 模拟器，而非真实 QPU。
 
-```http
-GET /api/platform/candidates
-Authorization: Bearer <token>
-```
-
-创建多材料筛选任务：
-
-```http
-POST /api/platform/screening-workflows
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "case_id": "li-s-demo",
-  "candidate_materials": ["Fe-N4/C", "Co-N4/C", "MoS2"]
-}
-```
-
-查询筛选结果：
-
-```http
-GET /api/platform/screening-workflows/{workflow_id}
-Authorization: Bearer <token>
-```
-
-查询排行榜：
-
-```http
-GET /api/platform/workflows/{workflow_id}/leaderboard
-Authorization: Bearer <token>
-```
-
-查询单个材料解释：
-
-```http
-GET /api/platform/workflows/{workflow_id}/candidate-explanations/{material_id}
-Authorization: Bearer <token>
-```
-
-## 当前能力边界
-
-为了避免误解，当前版本需要明确以下边界：
-
-1. 当前筛选材料主要来自内置候选库。
-2. 当前部分材料指标属于 demo/proxy 数据，不等同于真实 DFT 计算结果。
-3. 当前量子精修以单状态向量模拟器和线路分区规划验证为主，尚未执行分区子线路协同计算、测量重组或连接真实量子硬件。
-4. 自定义结构上传筛选正在规划中，尚未作为完整用户功能交付。
-5. 系统当前适合本地演示、比赛答辩和流程验证。
-
-## 常见问题
-
-### 前端打不开
-
-优先检查：
-
-1. 是否执行了 `.\scripts\start-platform-dev.ps1`
-2. `http://127.0.0.1:5173` 是否返回页面
-3. `frontend/node_modules` 是否已安装
-4. 端口 `5173` 是否被其他程序占用
-
-### 后端健康检查失败
-
-优先检查：
-
-1. Python 虚拟环境是否可用
-2. 后端依赖是否安装完整
-3. `http://127.0.0.1:8000/api/health` 是否可访问
-4. `.dev-logs/backend.err.log` 是否有错误信息
-
-### 登录注册失败
-
-优先检查：
-
-1. 后端是否启动
-2. SQLite 数据库是否可写
-3. 前端是否正确代理到 `/api`
-4. 用户名是否已存在
-
-### AI 助手不可用
-
-优先检查：
-
-1. `.env` 是否配置 `LLM_API_KEY`
-2. `LLM_BASE_URL` 是否可访问
-3. 模型名称是否正确
-4. 中转 API 是否返回 `401 Unauthorized`
-
-如果出现 `401 Unauthorized`，通常表示 token 无效、API key 错误、额度或中转站鉴权失败。
-
-### 筛选结果看起来像演示数据
-
-这是当前版本的正常边界。当前系统已经打通筛选流程，但真实科研级筛选还需要接入结构上传、DFT/ML 指标计算和更完整的量子化学建模能力。
-
-## 项目文档
-
-项目中已有部分产品和整改文档：
+## 目录结构
 
 ```text
-量智硫光-项目方案书.md
-量智硫光-核心流程图.md
-AI助手RAG需求文档-后端.md
-修改意见/待完成/后端自定义结构筛选最终版需求文档.md
+backend/                  FastAPI 服务、分子工作流与 API 路由
+frontend/                 Vue 前端、页面、服务和浏览器测试
+quantum_partitioning/     量子线路分区、映射与路由相关实现
+backend/tests/            后端测试
+frontend/tests/           前端单元测试
+frontend/e2e/             Playwright 端到端测试
+docs/                     API、工作流和发布相关文档
+deploy/                   Nginx、systemd 与生产部署说明
+scripts/                  本地开发启动脚本
 ```
 
-这些文档用于说明项目方案、核心流程、AI 助手 RAG 能力和下一阶段后端建设方向。
+## 相关文档
 
-## 建议演示路线
-
-比赛或汇报时建议按以下顺序演示：
-
-```text
-首页
--> 注册/登录
--> 多材料筛选
--> 创建筛选任务
--> 查看排行榜
--> 查看材料解释
--> 查看历史记录
--> 展示知识库/AI 助手
--> 展示分布式量子能力
--> 说明最终版自定义结构筛选规划
-```
-
-这样可以同时体现：
-
-1. 系统已经可运行
-2. 化学筛选链路已经闭环
-3. 分布式量子能力已经接入
-4. AI 助手和知识库具备扩展空间
-5. 自定义结构上传是下一阶段科研级能力方向
-
-## 版本说明
-
-当前 README 对应版本：
-
-```text
-量智硫光本地联调验收版
-日期：2026-07-08
-```
-
-该版本重点说明当前可用功能、启动方式、用户使用流程和最终版建设方向。
+- [Molecular Bond Scan API](docs/molecular-bond-scan-api.md)
+- [分子分布式量子工作流指南](docs/molecular-distributed-quantum-workflow-guide.md)
+- [生产部署说明](deploy/README.md)
