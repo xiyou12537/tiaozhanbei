@@ -97,7 +97,7 @@ export function validateMolecularStudyForm(form) {
   for (const [architectureIndex, architecture] of architectures.entries()) {
     const prefix = `架构 ${architectureIndex + 1}`
     const architectureId = architecture.architectureId?.trim() || ''
-    if (!ARCHITECTURE_ID_PATTERN.test(architectureId)) errors.push(`${prefix}的架构 ID 不符合契约`) 
+    if (!ARCHITECTURE_ID_PATTERN.test(architectureId)) errors.push(`${prefix}的架构 ID 不符合契约`)
     if (seenIds.has(architectureId)) errors.push('架构 ID 必须唯一')
     seenIds.add(architectureId)
     const partition = architecture.partition || {}

@@ -161,7 +161,7 @@ for (const scenario of [
     await authenticate(page)
     await page.route('**/api/molecular-bond-scans/bondscan_error', route => route.fulfill({ status: scenario.status, contentType: 'application/json', body: JSON.stringify({ detail: scenario.detail }) }))
     await page.goto('/app/molecular-bond-scans/bondscan_error')
-    if (scenario.status === 401) await expect(page).toHaveURL(/\/auth\?/) 
+    if (scenario.status === 401) await expect(page).toHaveURL(/\/auth\?/)
     else await expect(page.getByText(scenario.title, { exact: true })).toBeVisible()
   })
 }
