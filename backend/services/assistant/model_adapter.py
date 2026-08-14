@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from threading import Lock
 from typing import Any, Iterator, Protocol
 
 import httpx
@@ -35,6 +36,57 @@ class AssistantModelAdapter(Protocol):
         tools: list[dict[str, Any]],
         max_output_tokens: int,
     ) -> Iterator[dict[str, Any]]: ...
+
+
+class AssistantModelCallBudget:
+    """Thread-safe, process-local supplier request allowance for controlled runs."""
+
+    def __init__(self, maximum_requests: int):
+        if not isinstance(maximum_requests, int) or maximum_requests < 1:
+            raise ValueError("maximum_requests must be a positive integer")
+        self.maximum_requests = maximum_requests
+        self._consumed = 0
+        self._lock = Lock()
+
+    @property
+    def consumed(self) -> int:
+        with self._lock:
+            return self._consumed
+
+    def claim(self) -> None:
+        """Atomically reserve one request before the wrapped adapter can call a provider."""
+        with self._lock:
+            if self._consumed >= self.maximum_requests:
+                raise AssistantModelError(
+                    "assistant_model_request_budget_exhausted",
+                    "Molecular Copilot provider request budget is exhausted.",
+                    429,
+                )
+            self._consumed += 1
+
+
+@dataclass(frozen=True)
+class BudgetedAssistantModelAdapter:
+    """Wrap any adapter so every provider HTTP turn consumes the same hard budget."""
+
+    adapter: AssistantModelAdapter
+    budget: AssistantModelCallBudget
+
+    def stream(
+        self,
+        *,
+        system_prompt: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        max_output_tokens: int,
+    ) -> Iterator[dict[str, Any]]:
+        self.budget.claim()
+        yield from self.adapter.stream(
+            system_prompt=system_prompt,
+            messages=messages,
+            tools=tools,
+            max_output_tokens=max_output_tokens,
+        )
 
 
 class DisabledAssistantModelAdapter:

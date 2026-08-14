@@ -86,12 +86,11 @@ class MolecularAssistantService:
         self.validate_stream_request(session_id, user_id, ui_tool_name, ui_tool_arguments)
         session_record = self._session(session_id, user_id)
         ui_tool_arguments = ui_tool_arguments or {}
+        redacted_message = self._redact_model_content(message)
 
-        self._append_message(session_record, user_id, "user", self._redact_model_content(message))
-        model_messages: list[dict[str, Any]] = [
-            {"role": item.role, "content": item.content}
-            for item in self._history(session_id, user_id, limit=self.limits.context_max_messages)
-        ]
+        self._append_message(session_record, user_id, "user", redacted_message)
+        model_messages = self._completed_model_history(session_id, user_id)
+        model_messages.append({"role": "user", "content": redacted_message})
         try:
             tool_calls = 0
             if ui_tool_name is not None:
@@ -345,6 +344,27 @@ class MolecularAssistantService:
             .all()
         )
         return list(reversed(newest_first))
+
+    def _completed_model_history(self, session_id: str, user_id: int) -> list[dict[str, Any]]:
+        """Return only completed user-started turns; GET history remains append-only."""
+        records = self._history(session_id, user_id, limit=self.limits.context_max_messages * 2 + 1)
+        completed_turns: list[list[dict[str, Any]]] = []
+        active_turn: list[dict[str, Any]] | None = None
+        has_assistant_completion = False
+        for record in records:
+            if record.role == "user":
+                if active_turn and has_assistant_completion:
+                    completed_turns.append(active_turn)
+                active_turn = [{"role": "user", "content": record.content}]
+                has_assistant_completion = False
+            elif record.role == "assistant" and active_turn is not None:
+                active_turn.append({"role": "assistant", "content": record.content})
+                has_assistant_completion = True
+        if active_turn and has_assistant_completion:
+            completed_turns.append(active_turn)
+
+        history = [message for turn in completed_turns for message in turn]
+        return history[-self.limits.context_max_messages :]
 
     def _fit_model_context(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Keep the newest complete turns within deterministic estimated context limits."""
