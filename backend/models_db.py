@@ -277,6 +277,54 @@ class MolecularBondScanPointRecord(Base):
     completed_at = Column(DateTime, nullable=True)
 
 
+class AssistantSessionRecord(Base):
+    """User-owned Molecular Copilot conversation metadata."""
+
+    __tablename__ = "assistant_sessions"
+
+    session_id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String(160), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+
+class AssistantMessageRecord(Base):
+    """Append-only user and assistant messages for one assistant session."""
+
+    __tablename__ = "assistant_messages"
+
+    message_id = Column(String(64), primary_key=True)
+    session_id = Column(String(64), ForeignKey("assistant_sessions.session_id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    role = Column(String(16), nullable=False)
+    content = Column(Text, nullable=False)
+    metadata_json = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
+
+
+class AssistantToolExecutionRecord(Base):
+    """Durable controlled-tool audit, including confirmation state and result."""
+
+    __tablename__ = "assistant_tool_executions"
+
+    execution_id = Column(String(64), primary_key=True)
+    session_id = Column(String(64), ForeignKey("assistant_sessions.session_id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    tool_name = Column(String(80), nullable=False, index=True)
+    tool_kind = Column(String(24), nullable=False)
+    arguments_json = Column(JSON, nullable=False, default=dict)
+    parameter_summary = Column(Text, nullable=False)
+    status = Column(String(32), nullable=False, default="completed", index=True)
+    confirmation_id = Column(String(64), unique=True, nullable=True, index=True)
+    confirmation_expires_at = Column(DateTime, nullable=True, index=True)
+    confirmed_at = Column(DateTime, nullable=True)
+    result_json = Column(JSON, nullable=True)
+    error_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+
 class StructureFileRecord(Base):
     """Persist a user-owned source structure file and its parse lifecycle."""
 

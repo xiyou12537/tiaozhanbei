@@ -286,11 +286,13 @@ def test_new_scan_preserves_actual_engineering_deployment_boolean():
         session.close()
 
 
-def test_frozen_openapi_contract_matches_the_release_manifest():
-    """P1.2 changes deployment mechanics, never the already published API shape."""
+def test_p12_manifest_is_preserved_and_p13_manifest_matches_current_contract():
+    """P1.3A extends the API without rewriting P1.2's historical freeze."""
     from backend.main import app
 
-    manifest = Path("docs/openapi-p12.sha256")
-    expected = manifest.read_text(encoding="utf-8").strip()
+    p12_manifest = Path("docs/openapi-p12.sha256")
+    assert p12_manifest.read_text(encoding="utf-8").strip() == "c637fa962035b920dc3be431cf26078455f882779e49bc1c2b75c92e063705eb"
+    p13_manifest = Path("docs/openapi-p13.sha256")
+    expected = p13_manifest.read_text(encoding="utf-8").strip()
     canonical = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     assert hashlib.sha256(canonical).hexdigest() == expected

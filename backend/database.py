@@ -11,11 +11,20 @@ logger = logging.getLogger(__name__)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
-DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'partitioning.db')}"
+DATABASE_URL = os.getenv("LEGACY_DATABASE_URL", f"sqlite:///{os.path.join(DATA_DIR, 'partitioning.db')}")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False}, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+# Assistant persistence is release-managed. Keep these tables out of the
+# compatibility ``init_db`` path so a production process cannot silently alter
+# its schema before the backup-first migration is authorized.
+ASSISTANT_TABLE_NAMES = frozenset({
+    "assistant_sessions",
+    "assistant_messages",
+    "assistant_tool_executions",
+})
 
 _platform_engine = None
 _platform_session_local = None
@@ -30,9 +39,18 @@ def get_db():
         db.close()
 
 
-def init_db():
-    """Create legacy SQLite tables when they do not exist."""
-    Base.metadata.create_all(bind=engine)
+def init_db(bind=None):
+    """Create only legacy/product tables which do not require a release migration."""
+    tables = [table for table in Base.metadata.sorted_tables if table.name not in ASSISTANT_TABLE_NAMES]
+    Base.metadata.create_all(bind=bind or engine, tables=tables)
+
+
+def assistant_schema_ready(bind=None) -> bool:
+    """Return whether every explicitly migrated Assistant table is present."""
+    from sqlalchemy import inspect
+
+    inspector = inspect(bind or engine)
+    return all(inspector.has_table(table_name) for table_name in ASSISTANT_TABLE_NAMES)
 
 
 def get_session_local():

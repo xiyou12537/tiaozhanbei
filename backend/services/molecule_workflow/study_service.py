@@ -18,8 +18,20 @@ class MolecularStudyService:
         self.session = session
         self.workflow_service = workflow_service
 
-    def submit(self, request: dict[str, Any], user_id: int) -> dict[str, Any]:
-        study_id, molecular_problem_id = f"study_{uuid.uuid4().hex}", f"mprob_{uuid.uuid4().hex}"
+    def submit(
+        self,
+        request: dict[str, Any],
+        user_id: int,
+        *,
+        study_id: str | None = None,
+        molecular_problem_id: str | None = None,
+    ) -> dict[str, Any]:
+        if study_id is not None:
+            existing = self.session.query(DeploymentStudyRecord).filter_by(study_id=study_id, user_id=user_id).one_or_none()
+            if existing is not None:
+                return self._response(existing)
+        study_id = study_id or f"study_{uuid.uuid4().hex}"
+        molecular_problem_id = molecular_problem_id or f"mprob_{uuid.uuid4().hex}"
         evaluation_records = [
             DeploymentEvaluationRecord(
                 evaluation_id=f"deval_{uuid.uuid4().hex}",
