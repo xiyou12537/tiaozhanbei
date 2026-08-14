@@ -13,6 +13,7 @@ const MolecularStudyResultPage = () => import('./views/MolecularStudyResultPage.
 const MolecularBondScanCreatePage = () => import('./views/MolecularBondScanCreatePage.vue')
 const MolecularBondScanResultPage = () => import('./views/MolecularBondScanResultPage.vue')
 const SimulationCapabilitiesPage = () => import('./views/SimulationCapabilitiesPage.vue')
+const MolecularCopilotPage = () => import('./views/MolecularCopilotPage.vue')
 
 const routes = [
   {
@@ -38,6 +39,7 @@ const routes = [
       { path: 'molecular-bond-scans/new', component: MolecularBondScanCreatePage, meta: { title: '新建势能扫描', eyebrow: 'Potential energy scan' } },
       { path: 'molecular-bond-scans/:scanId', component: MolecularBondScanResultPage, meta: { title: '势能扫描结果', eyebrow: 'Bond scan report' } },
       { path: 'simulation-capabilities', component: SimulationCapabilitiesPage, meta: { title: '模拟能力说明', eyebrow: 'Capability contract' } },
+      { path: 'copilot', component: MolecularCopilotPage, meta: { title: 'Molecular Copilot', eyebrow: 'Controlled assistant' } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

@@ -140,5 +140,5 @@ test('首页和应用导航不再出现旧领域入口', async ({ page }) => {
   const visibleText = await page.locator('body').innerText()
   expect(visibleText).not.toMatch(/锂硫电池|Li₂S₄|Li2S4|FeN₄|FeN4|吸附|文献基准/)
   await page.goto('/app/molecules')
-  await expect(page.getByRole('navigation', { name: '主导航' }).getByRole('link')).toHaveCount(5)
+  await expect(page.getByRole('navigation', { name: '主导航' }).getByRole('link')).toHaveCount(6)
 })

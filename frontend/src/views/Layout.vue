@@ -65,6 +65,7 @@ const navItems = [
   { index: '03', path: '/app/molecular-studies/new', title: '部署评估', desc: '多架构路由与能量验证' },
   { index: '04', path: '/app/molecular-bond-scans/new', title: '势能扫描', desc: 'LiH 键长与离散势能曲线' },
   { index: '05', path: '/app/simulation-capabilities', title: '模拟能力说明', desc: '能力边界与执行语义' },
+  { index: '06', path: '/app/copilot', title: 'Molecular Copilot', desc: '受控问答与任务草稿' },
 ]
 
 function isActive(path) {
