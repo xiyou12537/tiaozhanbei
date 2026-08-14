@@ -18,6 +18,51 @@ knowledge.
 - Every execution remains `logical_virtual_qpu`; `is_real_qpu` is always
   `false`.
 
+## New-user guidance
+
+The server-side Copilot policy starts with a plain-language answer, then tells
+the user what they can do next; technical detail is added only when useful.
+Copilot follows the user's primary language: Chinese messages, including safety
+refusals, prompt-injection responses, missing-data notices, and unavailable-tool
+notices, receive clear, natural Chinese. For a first-time user or a task-selection
+request, Copilot recommends one task from the stated goal, explains the
+recommendation, uses suitable defaults, and asks at most one genuinely necessary
+follow-up question. For beginner Molecular Study guidance, the user supplies only the
+molecule and genuinely necessary geometry; Copilot uses the recommended default
+architecture set and does not require architecture, partition, connectivity, topology,
+or routing choices. This newcomer rule does not remove professional users' ability to
+discuss or adjust architecture, partition, connectivity, routing, active space, and
+VQE parameters.
+
+- **Molecule Workflow** calculates one fixed molecule's energy, quality status,
+  and simulated execution result.
+- **Molecular Study** compares engineering behavior for one molecular problem
+  across partition, connectivity, and routing choices.
+- **LiH Bond Scan** compares energy at discrete bond-length points to identify
+  low-energy regions worth further review. It is not continuous geometry
+  optimization and does not claim an exact equilibrium bond length.
+
+Result explanations remain evidence-bound: `completed` means execution
+finished, not automatically that scientific validation passed. `needs_review`,
+`partial`, `failed`, and legacy results with missing fields are explicitly
+called out. Copilot requests the existing compact `get_current_user_result`
+summary before making a result-specific statement and says when data is absent;
+it does not invent energy, minima, chemical-accuracy, FCI, SWAP,
+communication, or deployment conclusions. Every response retains a concise
+`logical_virtual_qpu`, `is_real_qpu=false`, non-real-QPU boundary.
+
+### Controlled real-model acceptance budget
+
+An isolated acceptance harness can share one process-local
+`AssistantModelCallBudget` and wrap its real adapter with
+`BudgetedAssistantModelAdapter`. The wrapper claims an atomic allowance before
+each `AssistantModelAdapter.stream` turn, including a tool-result continuation;
+multiple tool calls returned in one provider response still consume one request.
+When the allowance is exhausted it returns the local
+`assistant_model_request_budget_exhausted` error without calling the provider.
+The counter is an explicit harness control, not an automatic retry, a credential
+store, or a change to user-facing task confirmation.
+
 ## Lifecycle
 
 1. `POST /api/assistant/sessions` creates a user-owned session.
