@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:unit": "node --test src/api/index.test.mjs tests/molecule-workflow.test.mjs tests/molecular-study.test.mjs tests/molecular-bond-scan.test.mjs tests/molecular-copilot.test.mjs tests/scientific-validation.test.mjs tests/molecule-platform-architecture.test.mjs tests/home-narrative.test.mjs",
+    "test:unit": "node --test src/api/index.test.mjs tests/molecule-workflow.test.mjs tests/molecular-study.test.mjs tests/molecular-bond-scan.test.mjs tests/molecular-copilot.test.mjs tests/scientific-validation.test.mjs tests/molecule-platform-architecture.test.mjs tests/home-narrative.test.mjs tests/beginner-experience.test.mjs",
     "test:e2e": "playwright test --config=playwright.config.js"
   },
   "dependencies": {

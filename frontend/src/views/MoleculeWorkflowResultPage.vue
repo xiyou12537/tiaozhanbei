@@ -9,6 +9,8 @@
         <div class="result-actions"><el-tag>模拟器</el-tag><el-tag type="info">虚拟节点逻辑分布式模拟</el-tag><el-tag v-if="result?.is_real_qpu === false" type="warning">非真实 QPU</el-tag><router-link to="/app/molecules"><el-button>新建计算</el-button></router-link></div>
       </header>
 
+      <BeginnerResultSummary kind="workflow" :summary="beginnerSummary" />
+
       <section class="validation-summary" :class="validationClass">
         <div><span class="page-kicker">ENERGY & QUALITY STATUS</span><h3>{{ validationTitle }}</h3><p>{{ validationText }}</p></div>
         <div class="status-pair"><span>执行状态</span><strong>{{ executionLabel }}</strong><span>质量状态</span><strong>{{ result.validation_status || '—' }}</strong></div>
@@ -97,7 +99,9 @@ import { getMoleculeWorkflow, moleculeWorkflowExecutionMeta, normalizeMoleculeRo
 import { saveRecentMoleculeWorkflow } from '../services/moleculeWorkflowStorage'
 import ScientificValidationPanels from '../components/ScientificValidationPanels.vue'
 import ParticleConservingCircuitLegend from '../components/ParticleConservingCircuitLegend.vue'
+import BeginnerResultSummary from '../components/BeginnerResultSummary.vue'
 import { implementationVersions, workflowExecutionHeadline } from '../services/scientificValidationService.js'
+import { summarizeWorkflowForBeginners } from '../services/beginnerExperienceService.js'
 
 const route=useRoute();const loading=ref(false);const result=ref(null);const loadError=ref(null)
 const routing=computed(()=>normalizeMoleculeRoutingResult(result.value))
@@ -107,6 +111,7 @@ const legacyHeadline=computed(()=>workflowExecutionHeadline(result.value?.status
 const validationTitle=computed(()=>legacyHeadline.value.title)
 const validationText=computed(()=>legacyHeadline.value.message)
 const validationClass=computed(()=>result.value?.status==='completed'?'unknown':result.value?.status==='failed'?'review':'unknown')
+const beginnerSummary=computed(()=>summarizeWorkflowForBeginners(result.value || {}))
 const optimizerStatus=computed(()=>{const d=result.value?.vqe?.optimizer_diagnostics;if(!d)return '—';return `${d.scipy_success?'已正常终止':'未正常终止'}${d.scipy_status===null||d.scipy_status===undefined?'':` · ${d.scipy_status}`}`})
 const recentEnergyChanges=computed(()=>{const changes=result.value?.vqe?.optimizer_diagnostics?.recent_energy_changes_hartree;return Array.isArray(changes)&&changes.length?changes.map(x=>number(x,10)).join(' · '):'—'})
 const historyDots=computed(()=>{const history=result.value?.vqe?.iteration_history||[];if(!history.length)return[];const energies=history.map(item=>Number(item.energy_hartree));const min=Math.min(...energies),max=Math.max(...energies),range=max-min||1;return history.map((item,index)=>({iteration:item.iteration,energy:item.energy_hartree,x:40+(history.length===1?330:index*660/(history.length-1)),y:25+(max-Number(item.energy_hartree))*195/range}))})

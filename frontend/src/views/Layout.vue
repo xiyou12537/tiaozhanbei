@@ -60,12 +60,12 @@ const identityLabel = computed(() => isLoggedIn.value ? username.value : '访客
 const identityInitial = computed(() => identityLabel.value.charAt(0).toUpperCase())
 
 const navItems = [
-  { index: '01', path: '/app/molecules', title: '新建分子计算', desc: '几何、VQE 与路由' },
-  { index: '02', path: '/app/molecule-workflows', title: '计算任务', desc: '状态、质量与结果' },
-  { index: '03', path: '/app/molecular-studies/new', title: '部署评估', desc: '多架构路由与能量验证' },
-  { index: '04', path: '/app/molecular-bond-scans/new', title: '势能扫描', desc: 'LiH 键长与离散势能曲线' },
-  { index: '05', path: '/app/simulation-capabilities', title: '模拟能力说明', desc: '能力边界与执行语义' },
-  { index: '06', path: '/app/copilot', title: 'Molecular Copilot', desc: '受控问答与任务草稿' },
+  { index: '01', path: '/app/molecules', title: '计算一个分子', desc: '了解固定分子的计算结果' },
+  { index: '02', path: '/app/molecule-workflows', title: '查看我的任务', desc: '查看状态、质量与结果' },
+  { index: '03', path: '/app/molecular-studies/new', title: '比较计算方案', desc: '比较不同分区和连接方案' },
+  { index: '04', path: '/app/molecular-bond-scans/new', title: '观察键长趋势', desc: 'LiH 距离变化与能量趋势' },
+  { index: '05', path: '/app/simulation-capabilities', title: '了解计算边界', desc: '模拟能力与执行语义' },
+  { index: '06', path: '/app/copilot', title: '让 Copilot 帮我选', desc: '用日常语言生成受控草稿' },
 ]
 
 function isActive(path) {

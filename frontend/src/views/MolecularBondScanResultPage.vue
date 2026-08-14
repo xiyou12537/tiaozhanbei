@@ -12,6 +12,8 @@
         <div class="fixed-tags"><el-tag>模拟器</el-tag><el-tag>logical_virtual_qpu</el-tag><el-tag type="warning">非真实 QPU</el-tag></div>
       </header>
 
+      <BeginnerResultSummary kind="bond-scan" :summary="beginnerSummary" />
+
       <section class="overview">
         <article><span>Scan 状态</span><strong>{{ scan.status }}</strong><small>{{ scan.current_stage }}</small></article>
         <article><span>已完成 / 总点数</span><strong>{{ value(scan.completed_point_count) }} / {{ value(scan.total_point_count) }}</strong></article>
@@ -96,7 +98,9 @@ import { saveRecentMolecularBondScan } from '../services/molecularBondScanStorag
 import { clearAuthSession } from '../services/authStorage.js'
 import ScientificValidationPanels from '../components/ScientificValidationPanels.vue'
 import ParticleConservingCircuitLegend from '../components/ParticleConservingCircuitLegend.vue'
+import BeginnerResultSummary from '../components/BeginnerResultSummary.vue'
 import { implementationVersions, scanScientificErrorSeries } from '../services/scientificValidationService.js'
+import { summarizeBondScanForBeginners } from '../services/beginnerExperienceService.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -112,6 +116,7 @@ const minima = computed(() => scanMinimumCards(scan.value?.result))
 const deployment = computed(() => scan.value?.result?.deployment_result || [])
 const isTerminal = computed(() => isBondScanTerminalStatus(scan.value?.status))
 const deploymentReference = computed(() => bondScanDeploymentReferenceView(scan.value || {}))
+const beginnerSummary = computed(() => summarizeBondScanForBeginners(scan.value || {}))
 const selectedPoint = computed(() => points.value.find(point => point.point_index === selected.value) || points.value[0] || null)
 const pointVersions = computed(() => implementationVersions(selectedPoint.value || {}))
 const pointScientificDiagnostics = computed(() => {
