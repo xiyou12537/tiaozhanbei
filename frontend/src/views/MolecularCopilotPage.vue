@@ -11,6 +11,15 @@
 
     <section class="execution-boundary"><strong>固定能力边界</strong><p>Copilot 只能协助当前用户使用分子计算平台。所有执行均为 logical_virtual_qpu 逻辑虚拟 QPU 模拟，is_real_qpu=false；不会调用真实量子硬件。</p></section>
 
+    <section v-if="pendingDraft" class="copilot-source-context" data-testid="copilot-source-context" aria-label="当前待发送问题来源">
+      <div><span>QUESTION CONTEXT</span><strong>{{ sourceLabel }}</strong></div>
+      <p v-if="sourceTaskLabel">
+        计算方式：<strong>{{ sourceTaskLabel }}</strong>
+        <template v-if="hasSourceTaskId"> · 任务编号：<code>{{ pendingDraft.taskId }}</code></template>
+      </p>
+      <p>问题已放入输入框供你检查和编辑；点击发送前不会请求模型或创建任务。</p>
+    </section>
+
     <section class="data-boundary" data-testid="copilot-data-boundary" aria-label="第三方模型数据边界">
       <div class="data-boundary-lead"><span>THIRD-PARTY DATA BOUNDARY</span><h3>数据如何处理</h3><p>{{ assistantDataBoundary.summary }}</p></div>
       <details data-testid="copilot-data-details">
@@ -74,6 +83,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { createAssistantSession, confirmAssistantTool, getAssistantSession, streamAssistantMessage } from '../api/assistantApi.js'
 import { readUser } from '../services/authStorage.js'
 import { clearRecentAssistantSession, readRecentAssistantSession, saveRecentAssistantSession } from '../services/assistantSessionStorage.js'
+import { consumePendingCopilotDraft, copilotTaskTypeLabel } from '../services/assistantCopilotContext.js'
 import { assistantErrorMessage, assistantTaskLink, createAssistantConversationState, reduceAssistantSseEvent } from '../services/assistantSseService.js'
 import { assistantDataBoundary } from '../services/assistantDataBoundary.js'
 
@@ -89,11 +99,15 @@ const lastMessage = ref('')
 const confirming = ref(new Set())
 const deferred = ref(new Set())
 const confirmationErrors = ref({})
+const pendingDraft = ref(null)
 let abortController = null
 
 const messages = computed(() => state.value.messages)
 const displayError = computed(() => requestError.value ? errorText(requestError.value) : state.value.streamError ? errorText(state.value.streamError) : '')
 const canRetry = computed(() => Boolean(requestError.value || state.value.streamError))
+const sourceLabel = computed(() => ({ workbench: '工作台 · 选择计算方式', settings: '创建页 · 理解设置', result: '结果页 · 解释当前任务' })[pendingDraft.value?.source] || 'Copilot')
+const sourceTaskLabel = computed(() => copilotTaskTypeLabel(pendingDraft.value?.taskType))
+const hasSourceTaskId = computed(() => typeof pendingDraft.value?.taskId === 'string' && pendingDraft.value.taskId.trim().length > 0)
 
 onMounted(initialize)
 onBeforeUnmount(() => abortController?.abort())
@@ -102,6 +116,11 @@ async function initialize() {
   initializing.value = true
   requestError.value = null
   const user = readUser()
+  const draft = consumePendingCopilotDraft(user)
+  if (draft) {
+    pendingDraft.value = draft
+    input.value = draft.message
+  }
   const savedSessionId = readRecentAssistantSession(user)
   try {
     const session = savedSessionId ? await getAssistantSession(savedSessionId) : await createAssistantSession()
@@ -131,14 +150,17 @@ async function sendPrompt(prompt) {
   state.value = { ...state.value, messages: [...state.value.messages, { message_id: `local-${Date.now()}`, role: 'user', content: message, created_at: null }], streamingText: '', streamError: null, done: false }
   sending.value = true
   abortController = new AbortController()
+  let received = false
   try {
     await streamAssistantMessage(sessionId.value, message, {
       signal: abortController.signal,
       onEvent: event => { state.value = reduceAssistantSseEvent(state.value, event) },
     })
+    received = true
   } catch (error) {
     if (error?.name !== 'AbortError') requestError.value = error
   } finally {
+    if (received) pendingDraft.value = null
     abortController = null
     sending.value = false
   }
@@ -189,5 +211,6 @@ function taskLink(execution) { return assistantTaskLink(execution.result) }
 
 <style scoped>
 .copilot-page{display:grid;gap:22px}.copilot-hero{min-height:210px;padding:34px;border:1px solid var(--lz-line);display:flex;align-items:flex-end;justify-content:space-between;gap:26px;background:#e8ebe5}.page-kicker,.execution-panel header>span,.conversation-panel>header span,.draft-card>span,.data-boundary-lead>span{color:#68756d;font:700 .67rem ui-monospace,monospace;letter-spacing:.12em}.copilot-hero h2{max-width:760px;margin:12px 0;font-size:clamp(2.25rem,5vw,4.5rem);line-height:.93;letter-spacing:-.07em}.copilot-hero p{margin:0;color:var(--lz-muted)}.boundary-badges{display:flex;flex-wrap:wrap;gap:8px}.execution-boundary{padding:16px 22px;display:flex;gap:24px;align-items:center;border:1px solid #3a4b40;background:#17201d;color:#e5eadf}.execution-boundary strong{color:#b5f04c;font:.74rem ui-monospace,monospace;white-space:nowrap}.execution-boundary p{margin:0;color:#bac4bc;line-height:1.55;font-size:.8rem}.data-boundary{padding:20px 22px;border:1px solid #b8c3b3;background:#f4f7f1}.data-boundary-lead{display:grid;gap:7px}.data-boundary h3{margin:0;font-size:1.2rem}.data-boundary p{margin:0;color:#526057;line-height:1.65;font-size:.82rem}.data-boundary details{margin-top:14px;border-top:1px solid #cfd8ca}.data-boundary summary{padding-top:13px;color:#3c6235;cursor:pointer;font-size:.82rem;font-weight:700}.data-boundary-details{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin-top:13px;background:#d2dacd}.data-boundary-details section{padding:16px;background:#fff}.data-boundary-details h4{margin:0 0 9px;color:#52634f;font-size:.78rem}.data-boundary-details ul{margin:0;padding-left:18px;color:#627068;font-size:.76rem;line-height:1.7}.data-boundary-control{grid-column:1/-1}.data-boundary-control p+p{margin-top:8px}.copilot-error{margin:0}.copilot-workbench{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(310px,.6fr);align-items:start;gap:18px}.conversation-panel,.execution-panel{border:1px solid var(--lz-line);background:var(--lz-panel)}.conversation-panel>header{min-height:80px;padding:18px 22px;border-bottom:1px solid #dce0da;display:flex;align-items:center;justify-content:space-between;gap:18px}.conversation-panel>header div{display:grid;gap:5px}.conversation-panel>header strong{font:.72rem ui-monospace,monospace}.conversation-panel>header small{color:#758078;font-size:.72rem}.conversation-scroll{min-height:370px;max-height:590px;padding:22px;overflow:auto;display:grid;align-content:start;gap:12px;background:linear-gradient(90deg,rgba(98,140,61,.04) 1px,transparent 1px) 0 0/26px 26px}.empty-conversation{min-height:300px;padding:34px;display:grid;align-content:center;justify-items:start;background:#f4f6f1}.empty-conversation span{color:#73924f;font:700 .7rem ui-monospace,monospace}.empty-conversation h3{margin:14px 0 8px;font-size:2rem;letter-spacing:-.05em}.empty-conversation p{max-width:420px;margin:0;color:#68736c;line-height:1.7}.message{max-width:min(84%,680px);padding:14px 16px;border:1px solid #d5dbd3;display:grid;gap:8px;background:#fff}.message span{font:700 .64rem ui-monospace,monospace;letter-spacing:.1em}.message p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:.86rem}.user-message{justify-self:end;border-color:#668e43;background:#edf4e8}.user-message span{color:#537436}.assistant-message{justify-self:start}.partial-message{border-color:#d5b65d;background:#fff9e7}.partial-message small{color:#80651d;font-size:.7rem}.suggested-prompts{padding:16px 22px;display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid #e1e5df}.suggested-prompts button,.deferred button{border:1px solid #c5cec0;background:#f3f5f1;color:#426132;cursor:pointer}.suggested-prompts button{padding:7px 10px;font-size:.75rem}.suggested-prompts button:hover,.suggested-prompts button:focus-visible{border-color:#668e43;background:#e8f1e0}.composer{padding:20px 22px 22px;border-top:1px solid #dce0da;background:#fafbf8;display:grid;gap:8px}.composer label{font-weight:700;font-size:.85rem}.composer textarea{width:100%;resize:vertical;padding:12px;border:1px solid #bdc6bc;background:#fff;line-height:1.6}.composer textarea:focus{outline:2px solid #a8c68a;outline-offset:1px}.composer>div{display:flex;align-items:center;justify-content:space-between;gap:10px}.composer small{color:#728076;font-size:.7rem}.execution-panel>header{padding:24px;border-bottom:1px solid #dce0da;background:#17201d;color:#fff}.execution-panel h3{margin:10px 0;font-size:1.4rem}.execution-panel header p{margin:0;color:#adb9ae;font-size:.78rem;line-height:1.6}.empty-tools{padding:34px 24px;color:#778178;font-size:.82rem}.tool-execution{padding:18px 20px;border-bottom:1px solid #dfe3dd;display:grid;gap:10px}.tool-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.tool-head strong{font:.78rem ui-monospace,monospace;overflow-wrap:anywhere}.tool-execution>p{margin:0;color:#68736c;font-size:.78rem;line-height:1.55}.tool-execution>small{display:block;max-height:55px;overflow:auto;color:#68746c;font:.62rem/1.5 ui-monospace,monospace;overflow-wrap:anywhere}.draft-card{padding:13px;border:1px solid #d5b65d;background:#fff8df;display:grid;gap:7px}.draft-card>span{color:#896f21}.draft-card p,.deferred{margin:0;color:#675b35;font-size:.74rem;line-height:1.55}.draft-card>div{display:flex;flex-wrap:wrap;gap:8px}.deferred{padding:10px;background:#f4f5f1}.deferred button{margin-left:5px;padding:2px 5px}.task-link{padding:9px 10px;border:1px solid #668e43;background:#edf4e8;color:#355629;font-weight:700;font-size:.75rem;text-decoration:none;overflow-wrap:anywhere}.task-link:hover,.task-link:focus-visible{background:#dfeeda}@media(max-width:1000px){.copilot-workbench{grid-template-columns:1fr}.execution-panel{display:grid;grid-template-columns:1fr 1fr}.execution-panel>header,.empty-tools{grid-column:1/-1}.tool-execution{border-right:1px solid #dfe3dd}}@media(max-width:680px){.copilot-hero{align-items:flex-start;flex-direction:column;padding:24px}.execution-boundary{align-items:flex-start;flex-direction:column;padding:16px}.data-boundary{padding:18px}.data-boundary-details{grid-template-columns:1fr}.data-boundary-control{grid-column:auto}.conversation-panel>header{align-items:flex-start;flex-direction:column}.conversation-scroll{padding:14px;min-height:310px}.message{max-width:96%}.composer,.suggested-prompts{padding-left:14px;padding-right:14px}.composer>div{align-items:flex-start;flex-direction:column}.execution-panel{display:block}.tool-execution{border-right:0}}
+.copilot-source-context{padding:13px 18px;border:1px solid #b8c9ae;background:#f4f7f1;display:grid;grid-template-columns:auto 1fr;gap:4px 18px;align-items:center}.copilot-source-context div{display:grid;gap:3px}.copilot-source-context span{color:#68756d;font:700 .63rem var(--lz-mono);letter-spacing:.1em}.copilot-source-context strong{font-size:.82rem}.copilot-source-context p{margin:0;color:var(--lz-muted);font-size:.75rem;line-height:1.5}.copilot-source-context p:last-child{grid-column:1/-1}.copilot-source-context code{font:.68rem var(--lz-mono);overflow-wrap:anywhere}@media(max-width:680px){.copilot-source-context{grid-template-columns:1fr;gap:7px}.copilot-source-context p:last-child{grid-column:auto}}
 .data-boundary{padding:14px 18px}.data-boundary-lead{gap:4px}.data-boundary h3{font-size:1rem}.data-boundary p{font-size:.76rem;line-height:1.55}.data-boundary details{margin-top:10px}.data-boundary summary{padding-top:10px;font-size:.78rem}.data-boundary-details{margin-top:10px}.data-boundary-details section{padding:14px}
 </style>
