@@ -49,6 +49,7 @@ test('202 提交后进入 Study、轮询 partial result 并在后端终态停止
   const stoppedAt = getCount
   await page.waitForTimeout(2_800)
   expect(getCount).toBe(stoppedAt)
+  await page.locator('.study-evidence > summary').click()
   await expect(page.getByText('未配置 FCI 参考', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('路由后计划已实际消费', { exact: true }).first()).toBeVisible()
 })
@@ -58,9 +59,11 @@ test('刷新 Study 链接从 GET 恢复完整部署报告', async ({ page }) => 
   await page.route(`**/api/molecular-studies/${completedFixture.study_id}`, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(completedFixture) }))
   await page.goto(`/app/molecular-studies/${completedFixture.study_id}`)
   await expect(page.getByText(completedFixture.study_id, { exact: false })).toBeVisible()
+  await page.locator('.study-evidence > summary').click()
   await expect(page.getByRole('heading', { name: '架构比较', exact: true })).toBeVisible()
   await expect(page.getByText('forced-swap', { exact: false }).first()).toBeVisible()
   await page.reload()
+  await page.locator('.study-evidence > summary').click()
   await expect(page.getByRole('heading', { name: '架构独立评估进度', exact: true })).toBeVisible()
 })
 

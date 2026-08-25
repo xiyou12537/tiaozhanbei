@@ -28,6 +28,13 @@ async function reachConfirmation(page) {
   await expect(page.getByRole('heading', { name: '确认并执行', exact: true })).toBeVisible()
 }
 
+async function openProfessionalEvidence(page) {
+  const summary = page.locator('.workflow-evidence > summary')
+  await summary.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.workflow-evidence')).toHaveAttribute('open', '')
+}
+
 test('四步表单从能力接口构建并提交分离的两类拓扑', async ({ page }) => {
   await authenticate(page)
   let capturedRequest
@@ -89,6 +96,7 @@ test('LiH passed 展示 Powell 诊断且 nfev 使用正确中文名称', async (
   await page.goto('/app/molecule-workflows/molwf_lih_passed_fixture')
   await expect(page.locator('.validation-summary').getByRole('heading', { name: 'Workflow 执行已完成', exact: true })).toBeVisible()
   await expect(page.getByText('计算通过', { exact: true })).toHaveCount(0)
+  await openProfessionalEvidence(page)
   await expect(page.getByText('Powell', { exact: true })).toBeVisible()
   await expect(page.getByText('目标函数评估次数', { exact: true })).toBeVisible()
   await expect(page.getByText('142', { exact: true })).toBeVisible()
@@ -100,6 +108,7 @@ test('needs_review 不冒充通过且完整结果仍可查看', async ({ page })
   await page.goto('/app/molecule-workflows/molwf_needs_review_fixture')
   await expect(page.locator('.validation-summary').getByRole('heading', { name: 'Workflow 执行已完成', exact: true })).toBeVisible()
   await expect(page.getByText('计算通过', { exact: true })).toHaveCount(0)
+  await openProfessionalEvidence(page)
   await expect(page.getByRole('heading', { name: 'VQE 优化与线路', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '线路分区', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '跨分区通信', exact: true })).toBeVisible()
@@ -114,6 +123,7 @@ for (const scenario of [
     await authenticate(page)
     await page.route(`**/api/molecule-workflows/${scenario.id}`, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(scenario.fixture) }))
     await page.goto(`/app/molecule-workflows/${scenario.id}`)
+    await openProfessionalEvidence(page)
     await expect(page.getByRole('heading', { name: '分区间虚拟 QPU 拓扑', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: '芯片内部物理耦合拓扑', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'SWAP 路径', exact: true })).toBeVisible()
@@ -140,5 +150,5 @@ test('首页和应用导航不再出现旧领域入口', async ({ page }) => {
   const visibleText = await page.locator('body').innerText()
   expect(visibleText).not.toMatch(/锂硫电池|Li₂S₄|Li2S4|FeN₄|FeN4|吸附|文献基准/)
   await page.goto('/app/molecules')
-  await expect(page.getByRole('navigation', { name: '主导航' }).getByRole('link')).toHaveCount(6)
+  await expect(page.getByRole('navigation', { name: '主导航' }).getByRole('link')).toHaveCount(7)
 })

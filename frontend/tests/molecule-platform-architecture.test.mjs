@@ -95,13 +95,13 @@ test('零 SWAP 与强制 SWAP Fixture 保留独立拓扑、布局、路径与开
   )
 })
 
-test('应用信息架构仅保留分子计算、任务、结果和模拟能力', () => {
+test('应用信息架构以分子计算工作台组织任务、结果和模拟能力', () => {
   assert.match(routerSource, /simulation-capabilities/)
   for (const removed of ['screening', 'structure-workbench', 'research-benchmarks', "path: 'results'", 'knowledge', "path: 'history'"]) {
     assert.doesNotMatch(routerSource, new RegExp(removed))
   }
   const visibleShell = `${layoutSource}\n${homeSource}\n${entrySource}\n${resultSource}`
-  assert.match(visibleShell, /分子量子分布式计算平台/)
+  assert.match(visibleShell, /分子计算工作台/)
   assert.doesNotMatch(visibleShell, /锂硫电池|Li₂S₄|Li2S4|FeN₄|FeN4|吸附|文献基准/)
 })
 

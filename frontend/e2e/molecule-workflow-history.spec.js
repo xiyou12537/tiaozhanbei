@@ -95,7 +95,7 @@ test('401 权限错误提供重新登录入口', async ({ page }) => {
   }))
   await page.goto('/app/molecule-workflows')
   await expect(page.getByText('登录状态失效', { exact: true })).toBeVisible()
-  await expect(page.getByRole('link', { name: '重新登录' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '重新登录' })).toBeVisible()
 })
 
 test('服务异常保留已展示数据并可重试', async ({ page }) => {

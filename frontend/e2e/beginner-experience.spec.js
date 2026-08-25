@@ -43,6 +43,8 @@ test('all three result pages lead with an honest beginner summary and retain tec
   await expect(page.getByTestId('workflow-beginner-summary')).toContainText('任务是否完成')
   await expect(page.getByTestId('workflow-beginner-summary')).toContainText('最重要结果')
   await expect(page.getByTestId('workflow-beginner-summary')).toContainText('可信度 / 复核原因')
+  await page.locator('.workflow-evidence > summary').focus()
+  await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Qubit Hamiltonian' })).toBeVisible()
   await page.getByTestId('workflow-beginner-summary').locator('summary').focus()
   await page.keyboard.press('Enter')
@@ -53,6 +55,7 @@ test('all three result pages lead with an honest beginner summary and retain tec
   await page.route('**/api/molecular-studies/study_beginner', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(study) }))
   await page.goto('/app/molecular-studies/study_beginner')
   await expect(page.getByTestId('study-beginner-summary')).toContainText('1 / 1 个方案标记为可部署')
+  await page.locator('.study-evidence > summary').click()
   await expect(page.getByText('架构比较', { exact: true })).toBeVisible()
 
   const scan = { scan_id: 'scan_beginner', status: 'completed', completed_point_count: 0, total_point_count: 0, failed_point_count: 0, needs_review_point_count: 0, result: { points: [], scientific_vqe_discrete_minimum: null, deployment_reference_point_index: null } }
@@ -91,6 +94,7 @@ test('wide technical evidence scrolls inside its own container instead of wideni
   await page.route('**/api/molecular-studies/study_overflow', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(study) }))
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/app/molecular-studies/study_overflow')
+  await page.locator('.study-evidence > summary').click()
   await expect(page.locator('.report-table-wrap')).toBeVisible()
   const studyWidths = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }))
   expect(studyWidths.scrollWidth).toBeLessThanOrEqual(studyWidths.clientWidth)

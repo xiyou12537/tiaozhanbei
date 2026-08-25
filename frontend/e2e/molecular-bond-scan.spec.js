@@ -73,6 +73,7 @@ test('202 提交后立即进入 Scan、合并 partial result 并在终态停止�
   expect(postKey).toMatch(/^molwf-/)
   await expect.poll(() => getCount, { timeout: 7_000 }).toBeGreaterThanOrEqual(2)
   await expect(page.getByText('非真实 QPU', { exact: true })).toBeVisible()
+  await page.locator('.scan-evidence > summary').click()
   await page.getByText('分区、映射与路由证据', { exact: true }).click()
   await expect(page.getByText('路由后计划已实际消费').first()).toBeVisible()
   const stoppedAt = getCount
@@ -87,10 +88,12 @@ test('刷新通过 GET 恢复三曲线、最低点和部署报告', async ({ pag
   await expect(page.getByRole('heading', { name: 'LiH 离散势能曲线' })).toBeVisible()
   await expect(page.getByText('HF 离散最低点', { exact: true })).toBeVisible()
   await expect(page.getByText('科学验证后的 VQE 最低点', { exact: true })).toBeVisible()
+  await page.locator('.scan-evidence > summary').click()
   await expect(page.getByText('科学验证通过', { exact: true })).toBeVisible()
   await expect(page.getByText('particle number expectation', { exact: true })).toBeVisible()
   await expect(page.getByText('最低 VQE 点部署报告', { exact: true })).toBeVisible()
   await page.reload()
+  await page.locator('.scan-evidence > summary').click()
   await expect(page.getByText('VQE–FCI scientific error', { exact: true })).toBeVisible()
 })
 
@@ -103,6 +106,7 @@ test('科学需复核、FCI 不可用和仅工程部署不伪装成可信近似�
   fixture.result.points[0].fci_reference = { status: 'unavailable', method: null, energy_hartree: null, message: 'FCI unavailable' }
   await page.route('**/api/molecular-bond-scans/bondscan_science_review', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...fixture, scan_id: 'bondscan_science_review' }) }))
   await page.goto('/app/molecular-bond-scans/bondscan_science_review')
+  await page.locator('.scan-evidence > summary').click()
   await expect(page.getByText('科学结果需复核', { exact: true })).toBeVisible()
   await expect(page.getByText('没有通过科学验证的 VQE 最低点', { exact: true })).toBeVisible()
   await expect(page.getByText(/仅进行工程部署验证/)).toBeVisible()
@@ -123,23 +127,23 @@ test('engineering_only_deployment 的 pending、legacy、scientific 与 engineer
 
   await page.route('**/api/molecular-bond-scans/bondscan_pending', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(running) }))
   await page.goto('/app/molecular-bond-scans/bondscan_pending')
-  await expect(page.getByText('尚未形成部署结论', { exact: true })).toBeVisible()
+  await expect(page.locator('.deployment-reference-status').getByText('尚未形成部署结论', { exact: true })).toBeVisible()
   await expect(page.getByText('仅工程部署证据', { exact: true })).toHaveCount(0)
 
   await page.route('**/api/molecular-bond-scans/bondscan_legacy', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...legacy, scan_id: 'bondscan_legacy' }) }))
   await page.goto('/app/molecular-bond-scans/bondscan_legacy')
-  await expect(page.getByText('旧版结果，未记录部署依据', { exact: true })).toBeVisible()
+  await expect(page.locator('.deployment-reference-status').getByText('旧版结果，未记录部署依据', { exact: true })).toBeVisible()
   await expect(page.getByText('科学验证点部署', { exact: true })).toHaveCount(0)
 
   await page.route('**/api/molecular-bond-scans/bondscan_scientific', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...scientific, scan_id: 'bondscan_scientific' }) }))
   await page.goto('/app/molecular-bond-scans/bondscan_scientific')
-  await expect(page.getByText('科学验证点部署', { exact: true })).toBeVisible()
+  await expect(page.locator('.deployment-reference-status').getByText('科学验证点部署', { exact: true })).toBeVisible()
   await page.reload()
-  await expect(page.getByText('科学验证点部署', { exact: true })).toBeVisible()
+  await expect(page.locator('.deployment-reference-status').getByText('科学验证点部署', { exact: true })).toBeVisible()
 
   await page.route('**/api/molecular-bond-scans/bondscan_engineering', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...engineering, scan_id: 'bondscan_engineering' }) }))
   await page.goto('/app/molecular-bond-scans/bondscan_engineering')
-  await expect(page.getByText('仅工程部署证据', { exact: true })).toBeVisible()
+  await expect(page.locator('.deployment-reference-status').getByText('仅工程部署证据', { exact: true })).toBeVisible()
 })
 
 test('queued Scan 在尚未返回 result 时仍显示尚未形成部署结论', async ({ page }) => {
@@ -147,7 +151,7 @@ test('queued Scan 在尚未返回 result 时仍显示尚未形成部署结论', 
   const queued = { scan_id: 'bondscan_queued_empty', molecule_type: 'LiH', status: 'queued', current_stage: 'input_validation', total_point_count: 8, queued_point_count: 8, running_point_count: 0, completed_point_count: 0, failed_point_count: 0, needs_review_point_count: 0, current_point_index: null, result: null, error: null }
   await page.route('**/api/molecular-bond-scans/bondscan_queued_empty', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(queued) }))
   await page.goto('/app/molecular-bond-scans/bondscan_queued_empty')
-  await expect(page.getByText('尚未形成部署结论', { exact: true })).toBeVisible()
+  await expect(page.locator('.deployment-reference-status').getByText('尚未形成部署结论', { exact: true })).toBeVisible()
 })
 
 for (const scenario of [
