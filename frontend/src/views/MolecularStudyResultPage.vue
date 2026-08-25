@@ -13,7 +13,7 @@
 
       <BeginnerResultSummary kind="study" :summary="beginnerSummary" compact />
 
-      <section class="study-overview"><div><span>STUDY STATUS</span><h3>{{ studyStatusLabel }}</h3><p>公共分子问题状态：<b>{{ molecularProblem.status || '—' }}</b>。已完成架构独立展示，不会重复计算 PySCF 或 VQE。</p></div><div class="overview-metrics"><article><span>已完成 / 总架构</span><strong>{{ value(study.completed_evaluation_count) }} / {{ value(study.total_evaluation_count) }}</strong></article><article><span>可部署</span><strong>{{ value(summary.deployable_evaluation_count) }}</strong></article><article><span>不可部署</span><strong>{{ value(summary.non_deployable_evaluation_count) }}</strong></article><article><span>评估运行失败</span><strong>{{ value(summary.failed_evaluation_count) }}</strong></article></div></section>
+      <section class="study-overview"><div><span>STUDY STATUS</span><h3>{{ studyStatusLabel }}</h3><p>公共分子问题状态：<b>{{ molecularProblem.status || '—' }}</b>。已完成架构独立展示，不会重复计算 PySCF 或 VQE。</p></div><div class="overview-metrics"><article><span>已完成 / 总架构</span><strong>{{ value(study.completed_evaluation_count) }} / {{ value(study.total_evaluation_count) }}</strong></article><article><span>已验证可部署候选</span><strong data-testid="verified-deployment-candidate-count">{{ deploymentEvidence.verifiedCandidateCount }}</strong></article><article><span>部署验证待复核</span><strong>{{ deploymentEvidence.reviewCount }}</strong></article><article><span>评估运行失败</span><strong>{{ deploymentEvidence.failedCount }}</strong></article></div></section>
       <section class="study-decision" aria-label="方案比较结论">
         <article><span>整体比较</span><strong>{{ studyDecision.overall }}</strong><p>{{ studyDecision.candidate }}</p></article>
         <article><span>候选依据</span><strong>{{ studyDecision.reason }}</strong><p>{{ studyDecision.confidence }}</p></article>
@@ -51,7 +51,7 @@ import ParticleConservingCircuitLegend from '../components/ParticleConservingCir
 import BeginnerResultSummary from '../components/BeginnerResultSummary.vue'
 import { implementationVersions } from '../services/scientificValidationService.js'
 import { summarizeStudyForBeginners } from '../services/beginnerExperienceService.js'
-import { summarizeStudyDecision } from '../services/productExperienceService.js'
+import { summarizeStudyDecision, summarizeStudyDeploymentEvidence, studyDeploymentEvidence } from '../services/productExperienceService.js'
 import { readUser } from '../services/authStorage.js'
 import { createCopilotResultDraft, savePendingCopilotDraft } from '../services/assistantCopilotContext.js'
 
@@ -66,8 +66,8 @@ const sharedPhases = ['PySCF', '活性空间', 'Hamiltonian', 'Qubit 映射', 'V
 const evaluationPhases = ['线路分区', '虚拟节点映射', '芯片路由', 'routed plan 模拟', '能量验证']
 const molecularProblem = computed(() => study.value?.result?.molecular_problem || {})
 const versions = computed(() => implementationVersions(molecularProblem.value || {}))
-const summary = computed(() => study.value?.result?.summary || {})
 const evaluations = computed(() => study.value?.result?.deployment_evaluations || [])
+const deploymentEvidence = computed(() => summarizeStudyDeploymentEvidence(study.value || {}))
 const beginnerSummary = computed(() => summarizeStudyForBeginners(study.value || {}))
 const studyDecision = computed(() => summarizeStudyDecision(study.value || {}))
 const molecularProblemId = computed(() => resolveMolecularProblemId(study.value) || molecularProblem.value.molecular_problem_id || null)
@@ -97,7 +97,7 @@ function json(input) { return input === null || input === undefined ? '—' : JS
 function edgeList(edges) { return Array.isArray(edges) && edges.length ? edges.map(edge => `${edge.source} — ${edge.target}`).join(' · ') : '—' }
 function chipCouplings(chips) { return Array.isArray(chips) && chips.length ? chips.map(chip => `${chip.virtual_qpu_id}：${edgeList(chip.physical_coupling_map)}`).join('\n') : '—' }
 function booleanLabel(input, truthy, falsy) { return input === true ? truthy : input === false ? '未消费' : falsy }
-function deploymentTag(evaluation) { if (evaluation.is_deployable === true) return { label: '可部署', type: 'success' }; if (evaluation.is_deployable === false) return { label: '不可部署', type: 'danger' }; if (evaluation.status === 'failed') return { label: '评估失败', type: 'danger' }; return { label: '评估中', type: 'warning' } }
+function deploymentTag(evaluation) { return studyDeploymentEvidence(evaluation) }
 function goToCreate() { router.push('/app/molecular-studies/new') }
 function askCopilotAboutResult() { const draft = createCopilotResultDraft('molecular_study', study.value?.study_id); if (draft && savePendingCopilotDraft(readUser(), draft)) router.push('/app/copilot') }
 function goToLogin() { router.push(loginUrl.value) }

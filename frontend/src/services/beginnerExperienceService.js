@@ -38,6 +38,8 @@ export const plainLanguageTerms = [
   ['部署验证', '检查分区、映射、路由和逻辑分布式模拟是否按计划被实际使用。'],
 ]
 
+import { summarizeStudyDeploymentEvidence } from './productExperienceService.js'
+
 const statusMeta = {
   queued: ['已排队', '任务已创建，尚未开始完整计算。', '等待任务进入执行后再查看结果。'],
   running: ['计算中', '任务正在执行，当前内容可能是部分结果。', '保留本页，等待状态更新。'],
@@ -77,15 +79,23 @@ export function summarizeWorkflowForBeginners(result = {}) {
 
 export function summarizeStudyForBeginners(study = {}) {
   const [status, statusReason, next] = statusSummary(study.status)
-  const evaluations = study.result?.deployment_evaluations || []
-  const deployable = evaluations.filter(item => item?.is_deployable === true).length
-  const failed = evaluations.filter(item => item?.status === 'failed').length
-  const confidence = failed ? '方案比较包含失败项' : study.status === 'completed' ? '比较结果待结合每项验证阅读' : '比较仍在进行或状态待确认'
-  const confidenceReason = failed ? '失败项没有被当作可部署方案。' : '每个方案的科学与部署验证都保留在下方。'
+  const { evaluations, verifiedCandidateCount, reviewCount, failedCount } = summarizeStudyDeploymentEvidence(study)
+  const confidence = failedCount
+    ? '方案比较包含失败项'
+    : reviewCount
+      ? '部署可行标记存在，但部署验证缺失或未通过，需要复核'
+      : verifiedCandidateCount
+        ? '存在已通过部署验证的候选'
+        : study.status === 'completed' ? '没有已通过部署验证的候选' : '比较仍在进行或状态待确认'
+  const confidenceReason = failedCount
+    ? '失败项没有被当作已验证可部署候选。'
+    : reviewCount
+      ? '部署验证缺失或未通过的方案没有计入候选；只有完成、标记为可部署且部署验证明确通过的方案才会计入候选。'
+      : '每个方案的科学与部署验证都保留在下方。'
   return {
     status,
     statusReason,
-    keyResult: evaluations.length ? `${deployable} / ${evaluations.length} 个方案标记为可部署` : '尚无可比较的部署方案结果',
+    keyResult: evaluations.length ? `${verifiedCandidateCount} / ${evaluations.length} 个方案已通过部署验证` : '尚无可比较的部署方案结果',
     confidence,
     confidenceReason,
     next,

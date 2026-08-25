@@ -119,6 +119,65 @@ test('Study 首屏只将部署验证明确 passed 的架构作为候选，并诚
   }
 })
 
+test('Study 真实响应形状不把缺失部署验证的可行标记展示为已验证候选', async ({ page }) => {
+  await authenticate(page)
+  const fixture = structuredClone(completedStudy)
+  fixture.study_id = 'study_6c8085d78137497a943fba379b17ac13'
+  fixture.status = 'completed'
+  fixture.completed_evaluation_count = 3
+  fixture.total_evaluation_count = 3
+  fixture.result.summary = { ...fixture.result.summary, deployable_evaluation_count: 3 }
+  fixture.result.deployment_evaluations = ['linear-a', 'linear-b', 'forced-swap'].map(architecture_name => ({
+    architecture_name,
+    architecture_id: architecture_name,
+    status: 'completed',
+    is_deployable: true,
+    metrics: {},
+    partition_summary: {},
+    distribution: {},
+  }))
+  await page.route(`**/api/molecular-studies/${fixture.study_id}`, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) }))
+  await page.goto(`/app/molecular-studies/${fixture.study_id}`)
+  await expect(page.getByTestId('study-beginner-summary')).toContainText('0 / 3 个方案已通过部署验证')
+  await expect(page.getByTestId('study-beginner-summary')).toContainText('部署可行标记存在，但部署验证缺失或未通过，需要复核')
+  await expect(page.locator('.overview-metrics')).toContainText('已验证可部署候选')
+  await expect(page.locator('.overview-metrics')).toContainText('0')
+  await page.locator('.study-evidence > summary').click()
+  await expect(page.locator('.report-table-wrap')).toContainText('部署验证缺失，需复核')
+  await expect(page.locator('.report-table-wrap .el-tag')).toHaveText(['部署验证缺失，需复核', '部署验证缺失，需复核', '部署验证缺失，需复核'])
+})
+
+test('Study 首屏计数和状态标签按明确部署验证状态归并', async ({ page }) => {
+  await authenticate(page)
+  const fixture = structuredClone(completedStudy)
+  fixture.study_id = 'study_deployment_state_labels'
+  fixture.status = 'completed'
+  fixture.completed_evaluation_count = 5
+  fixture.total_evaluation_count = 5
+  fixture.result.deployment_evaluations = [
+    ['passed-a', { status: 'passed' }],
+    ['missing-b', undefined],
+    ['running-c', { status: 'running' }],
+    ['unknown-d', { status: 'unknown' }],
+    ['failed-e', { status: 'failed' }],
+  ].map(([architecture_name, deployment_validation]) => ({
+    architecture_name,
+    architecture_id: architecture_name,
+    status: 'completed',
+    is_deployable: true,
+    ...(deployment_validation ? { deployment_validation } : {}),
+    metrics: {}, partition_summary: {}, distribution: {},
+  }))
+  await page.route(`**/api/molecular-studies/${fixture.study_id}`, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) }))
+  await page.goto(`/app/molecular-studies/${fixture.study_id}`)
+  await expect(page.getByTestId('study-beginner-summary')).toContainText('1 / 5 个方案已通过部署验证')
+  await expect(page.getByTestId('verified-deployment-candidate-count')).toHaveText('1')
+  await page.locator('.study-evidence > summary').click()
+  await expect(page.locator('.report-table-wrap .el-tag')).toHaveText([
+    '已通过部署验证', '部署验证缺失，需复核', '部署验证未完成，需复核', '部署验证状态未知，需复核', '部署验证未通过',
+  ])
+})
+
 test('Bond Scan 首屏按科学最低点的边界证据给出下一步，而非恒定扩大范围', async ({ page }) => {
   const consoleErrors = []
   const failedRequests = []
@@ -172,4 +231,17 @@ test('五类页面在移动端无页面级横向溢出，宽证据只在详情�
     await expect(page.locator(root)).toBeVisible()
     await expect.poll(() => page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])).toEqual([1440, 1440])
   }
+})
+
+test('真实长度 Scan ID 在 390px 头部换行且不扩大页面', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await authenticate(page)
+  const fixture = structuredClone(scan)
+  fixture.scan_id = 'bondscan_d1c83453e8484feb9e730cad9195094f'
+  await page.route(`**/api/molecular-bond-scans/${fixture.scan_id}`, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) }))
+  await page.goto(`/app/molecular-bond-scans/${fixture.scan_id}`)
+  await expect(page.locator('.scan-result')).toBeVisible()
+  await expect(page.locator('.head')).toContainText(fixture.scan_id)
+  await expect(page.getByTestId('copilot-explain-result')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])).toEqual([390, 390])
 })

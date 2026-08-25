@@ -28,11 +28,35 @@ export function summarizeHistoryMetrics({ items = [], total = 0, dataSource = 's
   }
 }
 
-export function summarizeStudyDecision(study = {}) {
+export function studyDeploymentEvidence(evaluation = {}) {
+  if (evaluation?.status === 'failed') return { verified: false, review: false, label: '评估失败', type: 'danger', message: '评估运行失败，不能作为部署候选。' }
+  if (evaluation?.status !== 'completed') return { verified: false, review: evaluation?.is_deployable === true, label: '评估未完成，需复核', type: 'warning', message: '评估尚未完成，不能作为部署候选。' }
+  if (evaluation?.is_deployable !== true) return { verified: false, review: false, label: '不可部署', type: 'danger', message: '后端未将该架构标记为可部署。' }
+
+  const validationStatus = evaluation?.deployment_validation?.status
+  if (validationStatus === 'passed') return { verified: true, review: false, label: '已通过部署验证', type: 'success', message: '已完成、标记为可部署，且部署验证明确通过。' }
+  if (validationStatus === undefined || validationStatus === null || validationStatus === '') return { verified: false, review: true, label: '部署验证缺失，需复核', type: 'warning', message: '部署可行标记存在，但部署验证缺失，需要复核。' }
+  if (validationStatus === 'queued' || validationStatus === 'running') return { verified: false, review: true, label: '部署验证未完成，需复核', type: 'warning', message: '部署可行标记存在，但部署验证尚未完成，需要复核。' }
+  if (validationStatus === 'failed') return { verified: false, review: true, label: '部署验证未通过', type: 'danger', message: '部署可行标记存在，但部署验证未通过。' }
+  return { verified: false, review: true, label: '部署验证状态未知，需复核', type: 'warning', message: '部署可行标记存在，但部署验证状态未知，需要复核。' }
+}
+
+export function summarizeStudyDeploymentEvidence(study = {}) {
   const evaluations = Array.isArray(study.result?.deployment_evaluations) ? study.result.deployment_evaluations : []
-  const candidates = evaluations.filter(item => item?.status === 'completed' && item?.is_deployable === true && item?.deployment_validation?.status === 'passed')
+  const states = evaluations.map(studyDeploymentEvidence)
+  return {
+    evaluations,
+    states,
+    verifiedCandidateCount: states.filter(state => state.verified).length,
+    reviewCount: states.filter(state => state.review).length,
+    failedCount: evaluations.filter(item => item?.status === 'failed').length,
+  }
+}
+
+export function summarizeStudyDecision(study = {}) {
+  const { evaluations, failedCount } = summarizeStudyDeploymentEvidence(study)
+  const candidates = evaluations.filter(item => studyDeploymentEvidence(item).verified)
   const names = candidates.map(item => item.architecture_name || item.architecture_id).filter(Boolean)
-  const failedCount = evaluations.filter(item => item?.status === 'failed').length
   const overall = {
     completed: '整体比较已完成。',
     partial: '整体比较尚未完成；以下只展示已验证子结果，不能作为最终推荐。',

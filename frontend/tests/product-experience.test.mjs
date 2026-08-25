@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   summarizeHistoryMetrics,
   summarizeScanDecision,
+  studyDeploymentEvidence,
   summarizeStudyDecision,
 } from '../src/services/productExperienceService.js'
 
@@ -73,6 +74,16 @@ test('Study 只有明确通过部署验证的完成架构才能成为首屏候�
     assert.equal(decision.candidate, '尚无已验证候选')
     assert.match(decision.reason, /部署验证通过/)
   }
+})
+
+test('Study 部署状态将 passed、缺失、未知、运行与失败分为互不混淆的用户语义', () => {
+  const base = { status: 'completed', is_deployable: true }
+  assert.deepEqual(studyDeploymentEvidence({ ...base, deployment_validation: { status: 'passed' } }).label, '已通过部署验证')
+  assert.deepEqual(studyDeploymentEvidence(base).label, '部署验证缺失，需复核')
+  assert.deepEqual(studyDeploymentEvidence({ ...base, deployment_validation: { status: 'unknown' } }).label, '部署验证状态未知，需复核')
+  assert.deepEqual(studyDeploymentEvidence({ ...base, deployment_validation: { status: 'running' } }).label, '部署验证未完成，需复核')
+  assert.deepEqual(studyDeploymentEvidence({ ...base, deployment_validation: { status: 'failed' } }).label, '部署验证未通过')
+  assert.deepEqual(studyDeploymentEvidence({ ...base, status: 'failed' }).label, '评估失败')
 })
 
 test('Study 非 completed 状态明确不形成完整成功任务的推荐口径', () => {

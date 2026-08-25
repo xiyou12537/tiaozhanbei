@@ -32,3 +32,19 @@ test('study and scan summaries keep failed and missing scientific minima explici
   assert.equal(scan.confidence, '没有通过科学验证的离散候选点')
   assert.equal(scan.keyResult, '尚无通过科学验证的离散候选距离')
 })
+
+test('Study 新手摘要只统计明确通过部署验证的已验证候选', () => {
+  const summary = summarizeStudyForBeginners({
+    status: 'completed',
+    result: {
+      deployment_evaluations: [
+        { status: 'completed', is_deployable: true },
+        { status: 'completed', is_deployable: true, deployment_validation: { status: 'running' } },
+        { status: 'completed', is_deployable: true, deployment_validation: { status: 'unknown' } },
+      ],
+    },
+  })
+  assert.equal(summary.keyResult, '0 / 3 个方案已通过部署验证')
+  assert.match(summary.confidence, /部署可行标记存在/)
+  assert.match(summary.confidenceReason, /缺失或未通过/)
+})

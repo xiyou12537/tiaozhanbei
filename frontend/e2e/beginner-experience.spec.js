@@ -51,10 +51,10 @@ test('all three result pages lead with an honest beginner summary and retain tec
   await expect(page.getByTestId('workflow-beginner-summary')).toContainText('科学验证')
   await expect(page.getByTestId('workflow-beginner-summary')).toContainText('部署验证')
 
-  const study = { study_id: 'study_beginner', status: 'completed', completed_evaluation_count: 1, total_evaluation_count: 1, result: { molecular_problem: { molecule: { molecule_name: 'LiH' } }, summary: { deployable_evaluation_count: 1, non_deployable_evaluation_count: 0, failed_evaluation_count: 0 }, deployment_evaluations: [{ architecture_id: 'linear', status: 'completed', is_deployable: true }] } }
+  const study = { study_id: 'study_beginner', status: 'completed', completed_evaluation_count: 1, total_evaluation_count: 1, result: { molecular_problem: { molecule: { molecule_name: 'LiH' } }, summary: { deployable_evaluation_count: 1, non_deployable_evaluation_count: 0, failed_evaluation_count: 0 }, deployment_evaluations: [{ architecture_id: 'linear', status: 'completed', is_deployable: true, deployment_validation: { status: 'passed' } }] } }
   await page.route('**/api/molecular-studies/study_beginner', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(study) }))
   await page.goto('/app/molecular-studies/study_beginner')
-  await expect(page.getByTestId('study-beginner-summary')).toContainText('1 / 1 个方案标记为可部署')
+  await expect(page.getByTestId('study-beginner-summary')).toContainText('1 / 1 个方案已通过部署验证')
   await page.locator('.study-evidence > summary').click()
   await expect(page.getByText('架构比较', { exact: true })).toBeVisible()
 
