@@ -8,11 +8,11 @@
 
     <template v-if="scan">
       <header class="head">
-        <div><span>LIH / POTENTIAL ENERGY SCAN</span><h2>LiH 离散势能曲线</h2><p class="mono">{{ scan.scan_id }}</p></div>
-        <div class="fixed-tags"><el-tag>模拟器</el-tag><el-tag>logical_virtual_qpu</el-tag><el-tag type="warning">非真实 QPU</el-tag></div>
+        <div><span>LIH / POTENTIAL ENERGY SCAN</span><h2>LiH 离散势能曲线</h2><p class="mono">{{ scan.scan_id }}</p><p class="simulation-note">逻辑虚拟 QPU 模拟 · is_real_qpu=false · 非真实 QPU</p></div>
+        <div class="fixed-tags"><el-tag>logical_virtual_qpu</el-tag><el-tag>is_real_qpu=false</el-tag><el-tag type="warning">非真实 QPU</el-tag><el-button data-testid="copilot-explain-result" text @click="askCopilotAboutResult">让 Copilot 解释这个结果</el-button></div>
       </header>
 
-      <BeginnerResultSummary kind="bond-scan" :summary="beginnerSummary" />
+      <BeginnerResultSummary kind="bond-scan" :summary="beginnerSummary" compact />
 
       <section class="overview">
         <article><span>Scan 状态</span><strong>{{ scan.status }}</strong><small>{{ scan.current_stage }}</small></article>
@@ -20,6 +20,12 @@
         <article><span>failed 点数</span><strong>{{ value(scan.failed_point_count) }}</strong></article>
         <article><span>needs_review 点数</span><strong>{{ value(scan.needs_review_point_count) }}</strong></article>
         <article><span>当前计算距离</span><strong>{{ currentDistance }}</strong></article>
+      </section>
+
+      <section class="scan-decision" aria-label="键长扫描结论">
+        <article><span>扫描进度</span><strong>{{ scanDecision.progress }}</strong><p>{{ scanDecision.minimum }}；这是离散候选点，不是精确平衡键长。</p></article>
+        <article><span>范围与科学参考</span><strong>{{ scanDecision.boundary }}</strong><p>{{ scanDecision.science }}</p></article>
+        <article><span>部署结论与下一步</span><strong>{{ scanDecision.deployment }}</strong><p>{{ scanDecision.next }}</p></article>
       </section>
 
       <section class="panel curve-panel">
@@ -42,6 +48,9 @@
       </section>
       <el-alert v-if="isTerminal && scan.result && !scan.result.scientific_vqe_discrete_minimum" type="warning" :closable="false" title="没有通过科学验证的 VQE 最低点"><p>不显示可信近似键长。</p><p v-if="scan.result.engineering_only_deployment === true">仅进行工程部署验证。</p></el-alert>
 
+      <details class="scan-evidence">
+        <summary>查看扫描点、科学验证、部署与路由证据</summary>
+        <div class="scan-evidence-body">
       <section class="panel">
         <header><span>POINTS</span><h3>已获得扫描点</h3></header>
         <div class="table" role="table">
@@ -86,6 +95,8 @@
         </article>
       </section>
       <el-alert v-else-if="isTerminal && scan.result?.deployment_reference_point_index === null" type="info" :closable="false" title="没有通过验证的 VQE 点，因此未执行部署评估。" />
+        </div>
+      </details>
     </template>
   </div>
 </template>
@@ -95,12 +106,14 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { bondScanDeploymentReferenceView, getMolecularBondScan, isBondScanTerminalStatus, mergeMolecularBondScan, normalizeMolecularBondScanError, scanCurveSeries, scanMinimumCards } from '../services/molecularBondScanService.js'
 import { saveRecentMolecularBondScan } from '../services/molecularBondScanStorage.js'
-import { clearAuthSession } from '../services/authStorage.js'
+import { clearAuthSession, readUser } from '../services/authStorage.js'
+import { createCopilotResultDraft, savePendingCopilotDraft } from '../services/assistantCopilotContext.js'
 import ScientificValidationPanels from '../components/ScientificValidationPanels.vue'
 import ParticleConservingCircuitLegend from '../components/ParticleConservingCircuitLegend.vue'
 import BeginnerResultSummary from '../components/BeginnerResultSummary.vue'
 import { implementationVersions, scanScientificErrorSeries } from '../services/scientificValidationService.js'
 import { summarizeBondScanForBeginners } from '../services/beginnerExperienceService.js'
+import { summarizeScanDecision } from '../services/productExperienceService.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -109,6 +122,7 @@ const loading = ref(false)
 const error = ref(null)
 const selected = ref(null)
 const visible = ref({ hf: true, vqe: true, fci: true })
+function askCopilotAboutResult() { const draft = createCopilotResultDraft('molecular_bond_scan', scan.value?.scan_id); if (draft && savePendingCopilotDraft(readUser(), draft)) router.push('/app/copilot') }
 let timer = null
 const points = computed(() => scan.value?.result?.points || [])
 const series = computed(() => scanCurveSeries(points.value))
@@ -117,6 +131,7 @@ const deployment = computed(() => scan.value?.result?.deployment_result || [])
 const isTerminal = computed(() => isBondScanTerminalStatus(scan.value?.status))
 const deploymentReference = computed(() => bondScanDeploymentReferenceView(scan.value || {}))
 const beginnerSummary = computed(() => summarizeBondScanForBeginners(scan.value || {}))
+const scanDecision = computed(() => summarizeScanDecision(scan.value || {}))
 const selectedPoint = computed(() => points.value.find(point => point.point_index === selected.value) || points.value[0] || null)
 const pointVersions = computed(() => implementationVersions(selectedPoint.value || {}))
 const pointScientificDiagnostics = computed(() => {
@@ -174,4 +189,6 @@ onBeforeUnmount(stop)
 </script>
 
 <style scoped>
+.fixed-tags :deep(.el-tag){border-color:#b7cbaa;background:#edf4e8;color:#385a2c;font-weight:700}.fixed-tags :deep(.el-tag--warning){border-color:#e4c476;background:#fff5dc;color:#895d10}.simulation-note{margin-top:10px!important;color:#42662f!important;font:700 .68rem ui-monospace,monospace!important}
+.scan-decision{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border:1px solid var(--lz-line);background:var(--lz-line)}.scan-decision article{min-height:138px;padding:19px;background:var(--lz-panel);display:grid;align-content:start;gap:9px}.scan-decision span{color:var(--lz-muted);font-size:.68rem}.scan-decision strong{font-size:.92rem;line-height:1.45;overflow-wrap:anywhere}.scan-decision p{margin:0;color:var(--lz-muted);font-size:.75rem;line-height:1.55}.scan-evidence{border:1px solid var(--lz-line);background:var(--lz-bg-soft)}.scan-evidence>summary{padding:18px 20px;color:var(--lz-accent-deep);cursor:pointer;font-weight:700;font-size:.86rem}.scan-evidence[open]>summary{border-bottom:1px solid var(--lz-line)}.scan-evidence-body{padding:20px;display:grid;gap:18px}.scan-evidence-body>.panel{margin:0}@media(max-width:760px){.scan-decision{grid-template-columns:1fr}.scan-evidence-body{padding:20px}}
 .scan-result{display:grid;gap:22px}.loading,.panel{padding:30px;border:1px solid #c9cec7;background:#fff}.head{min-height:175px;padding:32px;border:1px solid #c7cdc5;background:#e7eae3;display:flex;align-items:flex-end;justify-content:space-between;gap:20px}.head span,.panel header>span,.science-diagnostics header>span,.error-strip header span,.deployment-reference-status>span{color:#6c7b70;font:700 .66rem ui-monospace,monospace;letter-spacing:.12em}.head h2{margin:10px 0;font-size:clamp(2rem,4.5vw,4.5rem);letter-spacing:-.065em}.fixed-tags{display:flex;gap:8px;flex-wrap:wrap}.mono{font-family:ui-monospace,monospace}.overview,.minima,.metric-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#d5dbd3}.overview article,.minima article,.metric-grid article{padding:18px;background:#f5f6f3;min-height:105px;display:grid;align-content:space-between}.overview span,.minima span,.metric-grid span{color:#748079;font-size:.68rem}.overview strong,.minima strong,.metric-grid strong{font:700 .85rem ui-monospace,monospace}.overview small{color:#7c8880;font-size:.66rem}.deployment-reference-status{padding:17px 20px;border:1px solid #cbd2c9;background:#f5f7f3;display:grid;gap:6px}.deployment-reference-status strong{font-size:1rem}.deployment-reference-status p{margin:0;color:#5f6c64;font-size:.78rem}.deployment-reference-status.engineering{border-color:#d5b65d;background:#fbf2d8}.deployment-reference-status.engineering>span{color:#8b6c18}.panel h3{margin:8px 0;font-size:1.5rem}.panel header p{color:#67736b;font-size:.78rem}.legend{display:flex;gap:14px}.curve{width:100%;min-height:360px;margin-top:16px;background:#f6f7f4}.curve line{stroke:#9da9a0}.curve polyline{fill:none;stroke-width:3}.curve polyline.HF,.curve circle.HF{stroke:#17201d;fill:#17201d}.curve polyline.VQE,.curve circle.VQE{stroke:#5e9437;fill:#5e9437}.curve polyline.FCI,.curve circle.FCI{stroke:#a56b3c;fill:#a56b3c}.curve circle{r:5;cursor:pointer}.curve circle.warning{stroke:#bc8a1f;stroke-width:5}.curve text{fill:#6d786f;font-size:13px}.error-strip{margin-top:15px;padding:14px;border:1px solid #d7dcd5;background:#f7f8f5}.error-strip header{display:flex;justify-content:space-between}.error-strip header strong{font-size:.78rem}.error-points{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.error-points button{padding:7px 9px;border:1px solid #84a068;background:#edf4e8;color:#315528;cursor:pointer;font:.68rem ui-monospace,monospace}.error-points button.review{border-color:#c19730;background:#faf0d9;color:#785e1f}.minima{grid-template-columns:repeat(4,1fr)}.minima small{color:#87601c;line-height:1.45}.table{border:1px solid #d9ded7}.table button{width:100%;padding:13px;border:0;border-bottom:1px solid #e1e5df;display:grid;grid-template-columns:70px repeat(6,1fr);gap:8px;text-align:left;background:#fff;cursor:pointer;font:.7rem ui-monospace,monospace}.table button.selected{background:#eaf0e4}.metric-grid{grid-template-columns:repeat(4,1fr)}.science-note{padding:13px;border-left:3px solid #bd8f27;background:#f6eedb;color:#655a37}.science-diagnostics{margin-top:14px;padding:15px;border:1px solid #d5dbd3;background:#f7f8f5}.science-diagnostics h4{margin:7px 0 12px}.science-diagnostics>div{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#d8ded7}.science-diagnostics article{min-height:74px;padding:11px;background:#fff;display:grid;align-content:space-between}.science-diagnostics span{color:#748079;font-size:.67rem}.science-diagnostics strong{font:.71rem ui-monospace,monospace;overflow-wrap:anywhere}.issue-list,.diagnostics,.stage-list{display:grid;gap:7px;margin-top:14px;padding:15px;border:1px solid #ddd6ba;background:#fffdf4;font-size:.76rem}.diagnostics{grid-template-columns:repeat(2,minmax(0,1fr));border-color:#d5dbd3;background:#f5f7f2}.stage-list{grid-template-columns:repeat(2,minmax(0,1fr));border-color:#d5dbd3;background:#f7f8f5}.issue-list strong,.diagnostics strong,.stage-list strong{grid-column:1/-1}.detail pre{max-height:240px;margin-top:14px;padding:15px;overflow:auto;background:#17201d;color:#cfe6b5;font:.67rem/1.6 ui-monospace,monospace}.deployment-panel{display:grid;gap:14px}.deployment{padding:18px;border:1px solid #d5dbd3}.deployment>header{display:flex;justify-content:space-between;align-items:center}.deployment>header div{display:grid;gap:5px}.deployment>header strong{font-family:ui-monospace,monospace}.deployment>header span{color:#758078;font-size:.72rem}.deployment-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-top:14px;background:#d9ded7}.deployment-metrics span{padding:11px;background:#f6f7f4;color:#6c7770;font-size:.7rem}.deployment-metrics b{display:block;margin-top:5px;color:#1b2620;font:700 .76rem ui-monospace,monospace}.failure{padding:10px;border-left:3px solid #bb7554;background:#fff2ed;color:#7b4633;font-size:.75rem}.deployment details{margin-top:14px}.deployment summary{color:#547c38;cursor:pointer;font-weight:700;font-size:.8rem}.evidence{display:grid;gap:7px;margin-top:10px;padding:12px;background:#f7f8f5;font:.7rem/1.5 ui-monospace,monospace;overflow:auto}.evidence p{margin:0;white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.head{align-items:flex-start;flex-direction:column}.overview,.minima,.metric-grid,.deployment-metrics,.diagnostics,.stage-list,.science-diagnostics>div{grid-template-columns:1fr}.panel{padding:20px}.table{overflow:auto}.table button{min-width:800px}.curve{min-width:700px}.curve-panel{overflow:auto}}</style>

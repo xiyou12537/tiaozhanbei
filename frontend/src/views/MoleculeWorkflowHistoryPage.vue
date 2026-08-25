@@ -2,15 +2,22 @@
   <div class="workflow-history-page">
     <header class="history-hero">
       <div>
-        <span class="lz-kicker">AUTHORITATIVE WORKFLOW LEDGER</span>
+        <span class="lz-kicker">TASK MANAGEMENT</span>
         <h2>计算任务</h2>
-        <p>服务端历史记录是任务状态的权威来源。执行完成与科研质量验证在这里分别呈现。</p>
+        <p>查看正在推进、需要复核和未完成的分子计算；执行状态与质量状态始终分别保留。</p>
       </div>
       <div class="hero-actions">
-        <router-link to="/app/molecules"><el-button>新建分子计算</el-button></router-link>
+        <el-button type="primary" @click="goToCreate">新建分子计算</el-button>
         <el-button :loading="isLoading" @click="refreshTasks">刷新任务</el-button>
       </div>
     </header>
+
+    <section class="task-metrics" aria-label="任务概览">
+      <article><span>{{ historyMetrics.totalLabel }}</span><strong>{{ historyMetrics.total }}</strong><small>服务端总量不等于当前页条数</small></article>
+      <article><span>正在推进</span><strong>{{ historyMetrics.counts.running }}</strong><small>{{ historyMetrics.scopeLabel }}</small></article>
+      <article><span>待复核</span><strong>{{ historyMetrics.counts.review }}</strong><button type="button" @click="applyQuickFilter('needs_review')">查看待复核</button></article>
+      <article><span>未完成</span><strong>{{ historyMetrics.counts.failed }}</strong><button type="button" @click="applyQuickFilter('failed')">查看失败任务</button></article>
+    </section>
 
     <section class="filter-panel" aria-label="任务筛选">
       <el-form class="filter-grid" label-position="top" @submit.prevent>
@@ -54,20 +61,20 @@
       <p>{{ loadError.message }}</p>
       <div class="alert-actions">
         <el-button size="small" :loading="isLoading" @click="refreshTasks">重试</el-button>
-        <router-link v-if="loadError.status === 401" to="/auth?tab=login"><el-button size="small">重新登录</el-button></router-link>
+          <el-button v-if="loadError.status === 401" size="small" @click="goToLogin">重新登录</el-button>
       </div>
     </el-alert>
 
     <section class="history-ledger">
       <div class="ledger-head">
         <div>
-          <span class="section-label">Authoritative history</span>
-          <h3>Workflow 记录</h3>
+          <span class="section-label">任务队列与历史</span>
+          <h3>继续处理任务</h3>
         </div>
         <div class="source-summary">
           <el-tag v-if="dataSource === 'local'" type="warning" effect="plain">本机缓存</el-tag>
           <el-tag v-else type="info" effect="plain">服务端记录</el-tag>
-          <span v-if="dataSource === 'server'">共 {{ pagination.total }} 条</span>
+          <span v-if="dataSource === 'server'">服务端共 {{ pagination.total }} 条；状态计数仅覆盖当前页</span>
           <span v-else>接口不可用，未与服务端记录混合</span>
         </div>
       </div>
@@ -147,7 +154,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   canUseMoleculeWorkflowLocalFallback,
@@ -159,6 +166,7 @@ import {
   normalizeMoleculeWorkflowHistoryQuery,
 } from '../services/moleculeWorkflowService'
 import { readRecentMoleculeWorkflows } from '../services/moleculeWorkflowStorage'
+import { summarizeHistoryMetrics } from '../services/productExperienceService.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -171,6 +179,7 @@ const queryIssues = ref([])
 const dataSource = ref('server')
 const retainedQueryIssues = ref([])
 let requestVersion = 0
+const historyMetrics = computed(() => summarizeHistoryMetrics({ items: items.value, total: pagination.total, dataSource: dataSource.value }))
 
 function toRouteQuery(filters) {
   const query = { page: String(filters.page), page_size: String(filters.page_size) }
@@ -275,6 +284,20 @@ function resetFilters() {
   router.push({ query: { page: '1', page_size: '20' } })
 }
 
+function applyQuickFilter(kind) {
+  const filters = {
+    page: 1,
+    page_size: filterForm.page_size,
+    ...(filterForm.molecule_name.trim() ? { molecule_name: filterForm.molecule_name.trim() } : {}),
+  }
+  if (kind === 'needs_review') filters.validation_status = 'needs_review'
+  if (kind === 'failed') filters.status = 'failed'
+  router.push({ query: toRouteQuery(filters) })
+}
+
+function goToCreate() { router.push('/app/molecules') }
+function goToLogin() { router.push('/auth?tab=login') }
+
 function changePage(page) {
   const { filters } = normalizeMoleculeWorkflowHistoryQuery(route.query)
   router.push({ query: toRouteQuery({ ...filters, page }) })
@@ -313,13 +336,14 @@ onMounted(restoreFromRoute)
 </script>
 
 <style scoped>
-.workflow-history-page { display: grid; gap: 20px; }
+.workflow-history-page { width:100%; min-width:0; max-width:100%; display: grid; gap: 20px; }
 .history-hero, .ledger-head, .source-summary, .hero-actions, .pagination-row, .alert-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .history-hero { min-height: 170px; padding: 30px 34px; border: 1px solid var(--lz-line); background: #e7eae4; }
 .history-hero h2 { margin: 12px 0 8px; font-size: clamp(2rem, 4vw, 4rem); line-height: .95; letter-spacing: -.055em; }
 .history-hero p { max-width: 760px; margin: 0; color: var(--lz-muted); line-height: 1.65; }
 .hero-actions { justify-content: flex-end; }
-.filter-panel, .history-ledger { border: 1px solid var(--lz-line); border-radius: 0; background: #fff; box-shadow: none; }
+.task-metrics{min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border:1px solid var(--lz-line);background:var(--lz-line)}.task-metrics article{min-width:0;min-height:118px;padding:18px 20px;display:grid;align-content:space-between;gap:8px;background:var(--lz-panel)}.task-metrics span,.task-metrics small{color:var(--lz-muted);font-size:.72rem;overflow-wrap:anywhere}.task-metrics strong{font:700 1.75rem/1 var(--lz-mono)}.task-metrics button{width:max-content;max-width:100%;padding:0;border:0;background:transparent;color:var(--lz-accent-deep);font:700 .74rem var(--lz-body);cursor:pointer}.task-metrics button:focus-visible{outline:2px solid var(--lz-accent);outline-offset:3px}
+.history-hero,.task-metrics,.filter-panel, .history-ledger { min-width:0; max-width:100%; box-sizing:border-box; }.filter-panel, .history-ledger { border: 1px solid var(--lz-line); border-radius: 0; background: #fff; box-shadow: none; }
 .filter-panel { padding: 18px 20px 4px; }
 .filter-grid { display: grid; grid-template-columns: minmax(190px, 1.4fr) repeat(3, minmax(150px, 1fr)) auto; gap: 14px; align-items: end; }
 .filter-grid :deep(.el-form-item) { margin-bottom: 14px; }
@@ -348,5 +372,5 @@ onMounted(restoreFromRoute)
 .pagination-row { padding: 16px 20px; border-top: 1px solid var(--lz-line); color: var(--lz-muted); font-size: .8rem; }
 @keyframes history-spin { to { transform: rotate(360deg); } }
 @media (max-width: 1180px) { .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .filter-actions { align-self: end; } }
-@media (max-width: 720px) { .history-hero, .ledger-head, .pagination-row { align-items: flex-start; flex-direction: column; } .hero-actions { width: 100%; justify-content: flex-start; } .filter-grid { grid-template-columns: 1fr; } .source-summary { justify-content: flex-start; flex-wrap: wrap; } }
+@media (max-width: 720px) { .history-hero, .ledger-head, .pagination-row { align-items: flex-start; flex-direction: column; } .hero-actions { width: 100%; justify-content: flex-start; } .task-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-grid { grid-template-columns: 1fr; } .source-summary { justify-content: flex-start; flex-wrap: wrap; } }
 </style>

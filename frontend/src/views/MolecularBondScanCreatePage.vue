@@ -3,10 +3,10 @@
     <header class="page-head">
       <div>
         <span>LIH / DISCRETE BOND SCAN</span>
-        <h2>LiH 键长扫描与部署评估</h2>
-        <p>固定距离的离散扫描；最低点仅是近似键长候选，不是精确平衡键长。</p>
+        <h2>观察 LiH 距离变化时，能量趋势如何变化</h2>
+        <p>这是多个固定距离点的离散比较，不是连续几何优化；最低点只是在当前网格中的候选位置。</p><p class="simulation-note">逻辑虚拟 QPU 模拟 · is_real_qpu=false · 非真实 QPU</p>
       </div>
-      <div class="fixed-tags"><el-tag>模拟器</el-tag><el-tag type="warning">非真实 QPU</el-tag></div>
+      <div class="fixed-tags"><el-tag>logical_virtual_qpu</el-tag><el-tag>is_real_qpu=false</el-tag><el-tag type="warning">非真实 QPU</el-tag><el-button data-testid="copilot-help-settings" text @click="askCopilotAboutSettings">帮我理解这些设置</el-button></div>
     </header>
 
     <section v-if="loadingCapabilities" class="loading">正在读取扫描能力…</section>
@@ -16,19 +16,20 @@
       <div class="step-rail"><span v-for="(label, index) in steps" :key="label" :class="{ active: step === index }">{{ String(index + 1).padStart(2, '0') }} {{ label }}</span></div>
 
       <section v-show="step === 0" class="panel">
-        <header><span>STEP 01</span><h3>扫描范围</h3></header>
+        <BeginnerSettingsGuide compact title="推荐路径：先确认要比较的距离范围" description="系统会生成多个离散点并逐点比较能量。推荐范围、点数和三种默认架构已经生效。" />
+        <header><span>STEP 01</span><h3>为什么要扫描不同键长？</h3><p>用一组离散距离观察能量趋势，找出值得进一步缩小间隔或扩大范围复核的区间。</p></header>
         <div class="form-grid">
           <el-form-item label="分子"><el-input model-value="LiH" disabled /></el-form-item>
           <el-form-item label="起始距离 / Å"><el-input-number v-model="form.startDistance" :min="distanceMin" :max="distanceMax" :step="0.1" /></el-form-item>
           <el-form-item label="终止距离 / Å"><el-input-number v-model="form.endDistance" :min="distanceMin" :max="distanceMax" :step="0.1" /></el-form-item>
           <el-form-item label="扫描点数"><el-input-number v-model="form.pointCount" :min="capabilities.minimum_point_count" :max="capabilities.maximum_point_count" /></el-form-item>
         </div>
-        <div class="distance-preview"><strong>按后端规则预览</strong><span v-for="distance in distances" :key="distance">{{ distance.toFixed(3) }} Å</span></div>
+        <div class="distance-preview"><strong>将比较 {{ distances.length }} 个离散点（按后端规则生成）</strong><span v-for="distance in distances" :key="distance">{{ distance.toFixed(3) }} Å</span></div>
       </section>
 
       <section v-show="step === 1" class="panel">
         <BeginnerSettingsGuide title="先保留推荐的计算设置" description="首次扫描只需要确认距离范围和点数。电子结构参数已经按默认值准备好；只有需要调整近似范围或计算预算时再展开。" />
-        <header><span>STEP 02</span><h3>计算参数</h3></header>
+        <header><span>STEP 02</span><h3>必要计算设置已使用推荐值</h3><p>默认值可直接提交；只有需要调整近似范围或计算预算时才展开。</p></header>
         <details class="advanced-settings"><summary>高级设置：活性空间、Pauli 阈值与 VQE 预算</summary>
         <div class="form-grid">
           <el-form-item label="电荷"><el-input-number v-model="form.charge" /></el-form-item>
@@ -44,7 +45,7 @@
 
       <section v-show="step === 2" class="panel">
         <BeginnerSettingsGuide title="默认架构已经可用于扫描" description="分区和连接用于对通过验证的候选点做逻辑部署评估。首次使用可保留默认方案，不会改动 LiH 扫描本身。" />
-        <header class="arch-head"><div><span>STEP 03</span><h3>部署架构</h3><p>同一 Scan 只计算一次 PySCF、Hamiltonian 与 VQE。芯片间连接和芯片内耦合图是不同的对象。</p></div><el-button type="primary" @click="copyArchitecture">复制架构</el-button></header>
+        <header class="arch-head"><div><span>STEP 03</span><h3>部署架构</h3><p>默认三种架构用于比较候选点的逻辑部署代价；它们不会改变 LiH 扫描本身。</p></div><el-button type="primary" @click="copyArchitecture">复制架构</el-button></header>
         <details class="advanced-settings"><summary>高级设置：分区、拓扑、耦合与路由</summary>
         <article v-for="(architecture, architectureIndex) in form.architectures" :key="architectureIndex" class="architecture">
           <header><strong>ARCH {{ String(architectureIndex + 1).padStart(2, '0') }}</strong><el-button text type="danger" :disabled="form.architectures.length <= minArchitectures" @click="form.architectures.splice(architectureIndex, 1)">删除</el-button></header>
@@ -73,8 +74,8 @@
       </section>
 
       <section v-show="step === 3" class="panel">
-        <header><span>STEP 04</span><h3>确认并提交</h3></header>
-        <div class="summary"><p>{{ form.startDistance }}–{{ form.endDistance }} Å · {{ form.pointCount }} 个离散点 · {{ form.architectures.length }} 个部署架构</p><p>只对通过验证的 VQE 离散最低能量点执行一次部署评估。逻辑分布式模拟，非真实 QPU。</p></div>
+        <header><span>STEP 04</span><h3>确认这次离散比较</h3></header>
+        <div class="summary"><p><b>距离范围：</b>{{ form.startDistance }}–{{ form.endDistance }} Å · <b>预计点数：</b>{{ distances.length }} · <b>部署架构：</b>{{ form.architectures.length }}</p><p>只对通过验证的 VQE 离散最低能量点执行一次部署评估。执行方式：logical_virtual_qpu；is_real_qpu=false，非真实 QPU。</p></div>
         <el-alert v-if="errors.length" type="error" title="请修正以下字段" :closable="false"><ul><li v-for="item in errors" :key="item">{{ item }}</li></ul></el-alert>
         <el-alert v-if="requestError" type="error" :title="requestError.title" :closable="false"><p>{{ requestError.message }}</p><p v-if="requestError.scanId" class="mono">Scan ID：{{ requestError.scanId }}</p></el-alert>
       </section>
@@ -90,11 +91,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { cloneStudyArchitecture } from '../services/molecularStudyService.js'
 import { buildBondScanPayload, createBondScanArchitectures, createBondScanForm, getMolecularBondScanCapabilities, normalizeMolecularBondScanError, previewBondDistances, submitMolecularBondScan, validateBondScanForm } from '../services/molecularBondScanService.js'
 import { createIdempotencyKey } from '../services/moleculeWorkflowService.js'
+import { readUser } from '../services/authStorage.js'
+import { createCopilotSettingsDraft, savePendingCopilotDraft } from '../services/assistantCopilotContext.js'
 import { saveRecentMolecularBondScan } from '../services/molecularBondScanStorage.js'
 import BeginnerSettingsGuide from '../components/BeginnerSettingsGuide.vue'
 
 const router = useRouter()
 const route = useRoute()
+function askCopilotAboutSettings() { if (savePendingCopilotDraft(readUser(), createCopilotSettingsDraft('molecular_bond_scan'))) router.push('/app/copilot') }
 const step = ref(0)
 const capabilities = ref(null)
 const loadingCapabilities = ref(true)
@@ -152,4 +156,5 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.fixed-tags :deep(.el-tag){border-color:#b7cbaa;background:#edf4e8;color:#385a2c;font-weight:700}.fixed-tags :deep(.el-tag--warning){border-color:#e4c476;background:#fff5dc;color:#895d10}.simulation-note{margin-top:12px!important;color:#42662f!important;font:700 .7rem ui-monospace,monospace!important}
 .bond-create-page{display:grid;gap:22px}.page-head{min-height:175px;padding:32px;border:1px solid #c7cdc5;background:#e7eae3;display:flex;align-items:flex-end;justify-content:space-between;gap:22px}.page-head span,.panel header>span{color:#6c7b70;font:700 .66rem ui-monospace,monospace;letter-spacing:.12em}.page-head h2{margin:10px 0;font-size:clamp(2rem,4vw,4.1rem);letter-spacing:-.06em}.page-head p{margin:0;color:#637067}.fixed-tags{display:flex;gap:8px;flex-wrap:wrap}.builder,.loading{border:1px solid #c9cec7;background:#fff}.loading{padding:32px}.step-rail{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #d9ded7}.step-rail span{padding:16px;color:#748079;font:700 .7rem ui-monospace,monospace}.step-rail .active{background:#17201d;color:#b5f04c}.panel{padding:32px}.panel h3{margin:8px 0 25px;font-size:1.6rem}.advanced-settings{border:1px solid #d3dbcf;background:#fbfcfa}.advanced-settings>summary{padding:14px 16px;color:#42662f;cursor:pointer;font-weight:700;font-size:.82rem}.advanced-settings[open]>summary{border-bottom:1px solid #dce4d7}.advanced-settings> :not(summary){margin-left:18px;margin-right:18px}.form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.form-grid :deep(.el-input-number),.form-grid :deep(.el-select){width:100%}.distance-preview{display:flex;flex-wrap:wrap;gap:8px;padding:18px;border:1px solid #d5dbd3;background:#f4f6f2;font:600 .72rem ui-monospace,monospace}.distance-preview strong{width:100%;color:#647e4b}.distance-preview span{padding:5px 7px;border:1px solid #d5dbd3}.arch-head{display:flex;justify-content:space-between;gap:16px}.arch-head p{max-width:700px;color:#68736b;font-size:.82rem}.architecture{margin-top:16px;padding:20px;border:1px solid #d5dbd3;background:#f7f8f5}.architecture>header,.topology-editors header,.chip-editor header{display:flex;justify-content:space-between;gap:8px;align-items:center}.architecture-basics{margin-top:16px}.topology-editors,.chips{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:12px}.topology-editors>section,.chip-editor{padding:14px;border:1px solid #d5dbd3;background:#fff}.topology-editors b,.chip-editor b,.coupling-title b{color:#5f813e;font:700 .66rem ui-monospace,monospace}.topology-editors small,.chip-editor small{color:#79857d;font-size:.69rem}.edge-row{display:flex;align-items:center;gap:7px;margin-top:9px}.edge-row :deep(.el-input-number){width:94px}.chips{grid-template-columns:repeat(3,minmax(0,1fr))}.chip-editor :deep(.el-input-number){width:100%}.chip-editor :deep(.el-form-item){margin:12px 0}.coupling-title{display:flex;justify-content:space-between;align-items:center}.empty-edge{padding:10px 0;color:#849087;font-size:.72rem}.summary{padding:20px;border-left:3px solid #73994d;background:#f3f6f1;line-height:1.7}footer{min-height:72px;padding:14px 28px;border-top:1px solid #dde2dc;display:flex;align-items:center;gap:12px}footer span{margin-right:auto;color:#778179;font:700 .68rem ui-monospace,monospace}.mono{font-family:ui-monospace,monospace}@media(max-width:980px){.form-grid,.chips{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.page-head,.arch-head{align-items:flex-start;flex-direction:column}.step-rail,.form-grid,.topology-editors,.chips{grid-template-columns:1fr}.panel{padding:20px}.step-rail span{padding:11px;font-size:.6rem}.edge-row :deep(.el-input-number){width:88px}}</style>
