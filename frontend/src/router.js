@@ -4,6 +4,7 @@ import PublicLayout from './layouts/PublicLayout.vue'
 import { hasAuthSession } from './services/authStorage'
 
 const HomePage = () => import('./views/HomePage.vue')
+const WorkbenchPage = () => import('./views/WorkbenchPage.vue')
 const AuthPage = () => import('./views/AuthPage.vue')
 const MoleculesPage = () => import('./views/MoleculesPage.vue')
 const MoleculeWorkflowHistoryPage = () => import('./views/MoleculeWorkflowHistoryPage.vue')
@@ -29,8 +30,8 @@ const routes = [
   {
     path: '/app',
     component: AppLayout,
-    redirect: '/app/molecules',
     children: [
+      { path: '', component: WorkbenchPage, meta: { title: '工作台', eyebrow: 'Molecular compute workbench' } },
       { path: 'molecules', component: MoleculesPage, meta: { title: '新建分子计算', eyebrow: 'Create workflow' } },
       { path: 'molecule-workflows', component: MoleculeWorkflowHistoryPage, meta: { title: '计算任务', eyebrow: 'Workflow ledger' } },
       { path: 'molecule-workflows/:workflowId', component: MoleculeWorkflowResultPage, meta: { title: 'Workflow 结果', eyebrow: 'Execution evidence' } },

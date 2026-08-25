@@ -1,21 +1,29 @@
 :root {
-  --lz-bg: #f2f3ef;
-  --lz-bg-soft: #e7eae4;
+  --lz-bg: #f5f5f1;
+  --lz-bg-soft: #ebede7;
   --lz-panel: #ffffff;
   --lz-panel-solid: #ffffff;
-  --lz-line: #c9cec7;
-  --lz-line-strong: #aab3aa;
-  --lz-text: #17201d;
-  --lz-muted: #69756e;
-  --lz-cyan: #628c3d;
+  --lz-line: #d3d7cf;
+  --lz-line-soft: #e7e9e3;
+  --lz-line-strong: #adb7aa;
+  --lz-text: #16211c;
+  --lz-muted: #647068;
+  --lz-accent: #647f42;
+  --lz-accent-deep: #45612f;
+  --lz-cyan: #647f42;
   --lz-teal: #6c963f;
   --lz-blue: #3f604f;
-  --lz-gold: #9d7a20;
+  --lz-gold: #9b771d;
   --lz-danger: #a74f3d;
-  --lz-radius: 2px;
+  --lz-running: #5f7f9f;
+  --lz-completed: #5d8742;
+  --lz-partial: #a77a22;
+  --lz-failed: #ad5543;
+  --lz-radius: 4px;
   --lz-shadow: none;
   --lz-display: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   --lz-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --lz-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -28,9 +36,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: #e4e7e1; }
 ::-webkit-scrollbar-thumb { border: 2px solid #e4e7e1; border-radius: 999px; background: #859289; }
-.el-button { border-radius: 2px; font-weight: 700; }
+.el-button { border-radius: var(--lz-radius); font-weight: 700; }
 .el-button--primary { border-color: #17201d; background: #17201d; box-shadow: none; }
 .el-button--primary:hover, .el-button--primary:focus { border-color: #385044; background: #385044; }
-.el-input__wrapper, .el-textarea__inner, .el-select__wrapper, .el-input-number .el-input__wrapper { border-radius: 2px; }
+.el-input__wrapper, .el-textarea__inner, .el-select__wrapper, .el-input-number .el-input__wrapper { border-radius: var(--lz-radius); }
 .el-tag { border-radius: 999px; font-weight: 700; }
 .lz-kicker { color: #668e43; font: 700 .68rem ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+.workspace-page { width: min(100%, 1440px); margin: 0 auto; min-width: 0; }
+.page-heading { padding: clamp(24px, 3.2vw, 44px); border: 1px solid var(--lz-line); }
+.eyebrow { color: var(--lz-accent-deep); font: 700 .67rem var(--lz-mono); letter-spacing: .12em; text-transform: uppercase; }
