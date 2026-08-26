@@ -1,0 +1,80 @@
+/* Shared P1.6A refinements for legacy scoped page shells. */
+.molecule-page-head,.result-head,.page-head,.head,.history-hero,.copilot-hero,.capability-hero {
+  background: var(--lz-bg-soft) !important;
+  border-color: var(--lz-line) !important;
+  border-radius: var(--lz-radius) !important;
+  box-shadow: var(--lz-shadow) !important;
+}
+.molecule-page-head h2,.result-head h2,.page-head h2,.head h2,.history-hero h2,.copilot-hero h2,.capability-hero h2 {
+  line-height: var(--lz-title-leading) !important;
+  letter-spacing: -.045em !important;
+}
+.molecule-page-head p,.result-head p,.page-head p,.head p,.history-hero p,.copilot-hero p,.capability-hero p,
+.step-head p,.panel header p,.section-head p,.result-panel p,.study-overview p {
+  line-height: var(--lz-body-leading) !important;
+}
+.page-kicker,.section-index,.page-head span,.head span,.panel header>span,.section-head span,.page-kicker,.execution-panel header>span,.conversation-panel>header span {
+  color: var(--lz-accent-deep) !important;
+  letter-spacing: .07em !important;
+}
+.workflow-builder,.recent-panel,.builder,.loading,.panel,.result-panel,.workflow-evidence,.study-evidence,.scan-evidence,.filter-panel,.history-ledger,.conversation-panel,.execution-panel,.capability-contract,.topology-explanation {
+  border-color: var(--lz-line) !important;
+  border-radius: var(--lz-radius) !important;
+  box-shadow: var(--lz-shadow) !important;
+}
+.step-panel,.panel,.result-panel { padding: var(--lz-space-panel) !important; }
+.task-choice-guide,.advanced-settings,.architecture,.chip-card,.chip-editor,.topology-editors>section,.summary,.distance-preview,.empty-conversation,.data-boundary,
+.evaluation-cards article,.detail-grid article,.science-grid article,.energy-row article,.overview article,.minima article,.metric-grid article,.molecule-summary article,.metrics-grid article,.routing-cost article,.optimizer-banner>div {
+  border-color: var(--lz-line) !important;
+  background: var(--lz-bg-soft) !important;
+}
+.task-choice-guide,.advanced-settings,.architecture,.chip-card,.chip-editor,.topology-editors>section { border-radius: var(--lz-radius-small) !important; }
+.task-choice-grid a:hover,.task-choice-grid a:focus-visible,.task-row:hover,.task-row:focus-visible,.table button.selected {
+  background: var(--lz-accent-soft) !important;
+}
+.step-rail .active { background: var(--lz-accent) !important; color: #e5f2ea !important; }
+.contract-bar,.execution-notice,.execution-panel>header,.contract-lead,.execution-boundary {
+  background: #253630 !important;
+  border-color: #31453c !important;
+}
+.contract-bar a,.execution-notice div span,.execution-notice div b,.execution-boundary strong,.contract-lead span,.execution-boundary h3 {
+  color: #c4dfd0 !important;
+}
+.validation-summary.passed,.study-overview,.beginner-summary:not(.compact) {
+  border-color: #c6ddd1 !important;
+  background: var(--lz-accent-soft) !important;
+}
+.validation-summary.review,.deployment-reference-status.engineering,.science-note,.partial-message,.draft-card {
+  border-color: #ebcf94 !important;
+  background: #fff6e5 !important;
+}
+.validation-summary.unknown,.deployment-reference-status,.error-strip,.science-diagnostics,.diagnostics,.stage-list {
+  border-color: var(--lz-line) !important;
+  background: var(--lz-bg-soft) !important;
+}
+.fixed-tags .el-tag:not(.el-tag--warning),.contract-tags .el-tag:not(.el-tag--warning),.boundary-badges .el-tag:not(.el-tag--warning) {
+  border-color: #b8d2c5 !important;
+  background: var(--lz-accent-soft) !important;
+  color: var(--lz-accent-deep) !important;
+}
+.fixed-tags .el-tag--warning,.contract-tags .el-tag--warning,.boundary-badges .el-tag--warning {
+  border-color: #ebcf94 !important;
+  background: #fff6e5 !important;
+  color: #855a16 !important;
+}
+.simulation-note,.section-label,.lz-kicker { color: var(--lz-accent-deep) !important; }
+.curve polyline.VQE,.curve circle.VQE { stroke: var(--lz-accent) !important; fill: var(--lz-accent) !important; }
+.curve polyline.FCI,.curve circle.FCI { stroke: #9a6818 !important; fill: #9a6818 !important; }
+.curve circle.warning { stroke: #9a6818 !important; }
+.user-message,.task-link { border-color: #b8d2c5 !important; background: var(--lz-accent-soft) !important; color: var(--lz-accent-deep) !important; }
+.suggested-prompts button,.deferred button { border-color: var(--lz-line-strong) !important; background: var(--lz-bg-soft) !important; color: var(--lz-accent-deep) !important; }
+.conversation-scroll { background: #fbfcfa !important; }
+.composer { background: var(--lz-bg-soft) !important; }
+.composer textarea { border-color: var(--lz-line) !important; }
+.composer textarea:focus { outline-color: var(--lz-accent) !important; }
+.history-table .el-table__row:hover > td.el-table__cell { background: var(--lz-accent-soft) !important; }
+.workflow-cell span { color: var(--lz-accent-deep) !important; }
+@media (max-width: 760px) {
+  .molecule-page-head,.result-head,.page-head,.head,.history-hero,.copilot-hero,.capability-hero { padding: 22px 20px !important; }
+  .panel,.result-panel,.study-evidence-body,.scan-evidence-body { padding: 18px !important; }
+}
