@@ -9,6 +9,11 @@
         </span>
       </router-link>
 
+      <router-link class="platform-home-link" to="/" aria-label="返回平台首页">
+        <span class="home-link-mark" aria-hidden="true">←</span>
+        <span v-if="!sidebarCollapsed">返回平台首页</span>
+      </router-link>
+
       <div v-if="!sidebarCollapsed" class="nav-caption">工作空间</div>
       <nav class="platform-nav" aria-label="主导航">
         <router-link v-for="item in navItems" :key="item.path" :to="item.path" :aria-label="item.title" :class="{ active: isActive(item.path) }">
@@ -43,6 +48,9 @@
         </button>
       </header>
       <nav class="mobile-drawer-links" aria-label="移动端主导航">
+        <router-link class="mobile-drawer-home" to="/" aria-label="返回平台首页" @click="closeMobileMenu">
+          <span aria-hidden="true">←</span><strong>返回平台首页</strong>
+        </router-link>
         <router-link v-for="item in navItems" :key="item.path" :to="item.path" :aria-label="item.title" :aria-current="isActive(item.path) ? 'page' : null" :class="{ active: isActive(item.path) }" @click="closeMobileMenu">
           <span>{{ item.index }}</span><strong>{{ item.title }}</strong>
         </router-link>
@@ -167,6 +175,10 @@ onBeforeUnmount(() => {
 .brand-copy { min-width: 0; display: grid; gap: 4px; }
 .brand-copy strong { max-width: 174px; font-size: .9rem; line-height: 1.35; }
 .brand-copy small, .account-copy small { color: #839188; font-size: .62rem; letter-spacing: .11em; }
+.platform-home-link { min-height: 42px; margin: 20px 7px 0; padding: 8px 10px; border: 1px solid #34423c; display: flex; align-items: center; gap: 10px; color: #c7cec9; font-size: .78rem; font-weight: 700; text-decoration: none; }
+.platform-home-link:hover, .platform-home-link:focus-visible { border-color: #6c8a7d; color: #fff; }
+.home-link-mark { width: 18px; flex: 0 0 18px; color: #9dc6ae; font: 700 1rem/1 var(--lz-mono); text-align: center; }
+.platform-sidebar.compact .platform-home-link { justify-content: center; margin-left: 0; margin-right: 0; padding-left: 6px; padding-right: 6px; }
 .nav-caption { margin: 38px 10px 11px; color: #718078; font-size: .64rem; letter-spacing: .16em; }
 .platform-nav { display: grid; gap: 3px; }
 .platform-nav a { min-height: 46px; padding: 9px 12px; border: 1px solid transparent; display: flex; align-items: center; gap: 12px; color: #b2bbb5; text-decoration: none; transition: .18s ease; }
@@ -194,5 +206,5 @@ onBeforeUnmount(() => {
 .topbar-contract i { width: 8px; height: 8px; border-radius: 50%; background: #3d6f9e; }
 .platform-content { min-width:0; padding: 28px clamp(22px, 4vw, 54px) 70px; }
 .mobile-nav-scrim,.mobile-nav-drawer{display:none}
-@media (max-width: 760px) { .platform-sidebar { width: 82px; min-width: 82px; } .brand-copy, .nav-caption, .nav-copy, .simulator-note, .account-copy, .logout { display: none; } .platform-nav a{justify-content:center;padding:9px 6px}.nav-index{width:auto}.platform-topbar { min-height: 72px; } .topbar-contract { display: none; } .platform-content { padding: 18px 14px 44px; } .mobile-nav-scrim{display:block;position:fixed;z-index:20;inset:0;background:rgba(20,29,25,.42)}.mobile-nav-drawer{width:min(308px,calc(100vw - 82px));max-width:calc(100vw - 82px);min-height:100vh;padding:18px 14px 16px;position:fixed;z-index:21;top:0;bottom:0;left:82px;display:flex;flex-direction:column;overflow-y:auto;background:#1f2926;color:#eef2ed;box-shadow:12px 0 24px rgba(20,29,25,.14)}.mobile-nav-head{padding:4px 4px 16px;border-bottom:1px solid #34423c;display:flex;align-items:center;justify-content:space-between;gap:12px}.mobile-nav-head>div{display:grid;gap:5px}.mobile-nav-head span{color:#a6b3ac;font:700 .62rem ui-monospace,monospace;letter-spacing:.08em}.mobile-nav-head strong{font-size:1rem}.mobile-drawer-close{width:36px;height:36px;border:1px solid #405048;display:grid;place-items:center;background:transparent;color:#eef2ed;cursor:pointer}.mobile-drawer-links{margin-top:14px;display:grid;gap:4px}.mobile-drawer-links a{min-height:47px;padding:10px;border:1px solid transparent;display:flex;align-items:center;gap:12px;color:#c7cec9;text-decoration:none}.mobile-drawer-links a.active{border-color:#4b6056;background:#294238;color:#fff}.mobile-drawer-links a:focus-visible,.mobile-drawer-links a:hover{border-color:#6c8a7d}.mobile-drawer-links span{width:26px;color:#9dc6ae;font:700 .66rem ui-monospace,monospace}.mobile-drawer-links strong{font-size:.86rem}.mobile-drawer-account{margin-top:auto;padding-top:16px;border-top:1px solid #34423c;display:grid;gap:14px}.mobile-drawer-account>div{display:flex;align-items:center;gap:10px}.mobile-drawer-account>div>span:last-child{display:grid;gap:3px}.mobile-drawer-account small{color:#a0aca5;font-size:.68rem}.mobile-drawer-account button{min-height:38px;border:1px solid #4b5b52;display:flex;align-items:center;justify-content:center;gap:8px;background:transparent;color:#f0a18e;font-weight:700;cursor:pointer} }
+@media (max-width: 760px) { .platform-sidebar { width: 82px; min-width: 82px; } .brand-copy, .platform-home-link>span:last-child, .nav-caption, .nav-copy, .simulator-note, .account-copy, .logout { display: none; } .platform-home-link{justify-content:center;margin-left:0;margin-right:0;padding-left:6px;padding-right:6px}.platform-nav a{justify-content:center;padding:9px 6px}.nav-index{width:auto}.platform-topbar { min-height: 72px; } .topbar-contract { display: none; } .platform-content { padding: 18px 14px 44px; } .mobile-nav-scrim{display:block;position:fixed;z-index:20;inset:0;background:rgba(20,29,25,.42)}.mobile-nav-drawer{width:min(308px,calc(100vw - 82px));max-width:calc(100vw - 82px);min-height:100vh;padding:18px 14px 16px;position:fixed;z-index:21;top:0;bottom:0;left:82px;display:flex;flex-direction:column;overflow-y:auto;background:#1f2926;color:#eef2ed;box-shadow:12px 0 24px rgba(20,29,25,.14)}.mobile-nav-head{padding:4px 4px 16px;border-bottom:1px solid #34423c;display:flex;align-items:center;justify-content:space-between;gap:12px}.mobile-nav-head>div{display:grid;gap:5px}.mobile-nav-head span{color:#a6b3ac;font:700 .62rem ui-monospace,monospace;letter-spacing:.08em}.mobile-nav-head strong{font-size:1rem}.mobile-drawer-close{width:36px;height:36px;border:1px solid #405048;display:grid;place-items:center;background:transparent;color:#eef2ed;cursor:pointer}.mobile-drawer-links{margin-top:14px;display:grid;gap:4px}.mobile-drawer-links a{min-height:47px;padding:10px;border:1px solid transparent;display:flex;align-items:center;gap:12px;color:#c7cec9;text-decoration:none}.mobile-drawer-links a.active{border-color:#4b6056;background:#294238;color:#fff}.mobile-drawer-home{border-color:#4b5b52!important;background:#24342d}.mobile-drawer-links a:focus-visible,.mobile-drawer-links a:hover{border-color:#6c8a7d}.mobile-drawer-links span{width:26px;color:#9dc6ae;font:700 .66rem ui-monospace,monospace}.mobile-drawer-links strong{font-size:.86rem}.mobile-drawer-account{margin-top:auto;padding-top:16px;border-top:1px solid #34423c;display:grid;gap:14px}.mobile-drawer-account>div{display:flex;align-items:center;gap:10px}.mobile-drawer-account>div>span:last-child{display:grid;gap:3px}.mobile-drawer-account small{color:#a0aca5;font-size:.68rem}.mobile-drawer-account button{min-height:38px;border:1px solid #4b5b52;display:flex;align-items:center;justify-content:center;gap:8px;background:transparent;color:#f0a18e;font-weight:700;cursor:pointer} }
 </style>

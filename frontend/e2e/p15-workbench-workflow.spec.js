@@ -89,6 +89,65 @@ test('从工作台通过主要操作进入推荐 Workflow 创建页', async ({ p
   await expect(page.locator('.molecule-page-head').getByRole('heading', { name: '新建分子计算', exact: true })).toBeVisible()
 })
 
+test('返回平台首页入口保留认证状态，并与退出登录保持独立', async ({ page }) => {
+  const consoleErrors = []
+  const failedRequests = []
+  const unexpectedApiResponses = []
+  page.on('console', message => {
+    if (message.type() === 'error') consoleErrors.push(message.text())
+  })
+  page.on('requestfailed', request => failedRequests.push(request.url()))
+  page.on('response', response => {
+    if (response.url().includes('/api/') && response.status() >= 400) unexpectedApiResponses.push(response.status())
+  })
+  await authenticate(page)
+  await mockWorkflowApi(page)
+  await page.goto('/app')
+
+  const homeLink = page.getByRole('link', { name: '返回平台首页', exact: true })
+  await expect(homeLink).toBeVisible()
+  await expect(page.locator('.platform-home-link a, .platform-home-link button')).toHaveCount(0)
+  await homeLink.click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('heading', { name: /分子量子/ })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => ({ token: localStorage.getItem('token'), user: localStorage.getItem('user') }))).toEqual({ token: 'p15-workbench-token', user: JSON.stringify({ id: 15, username: 'workbench-user' }) })
+
+  await page.goto('/app')
+  await expect(page).toHaveURL(/\/app\/?$/)
+  const desktopToggle = page.getByRole('button', { name: '收起侧栏' })
+  await desktopToggle.click()
+  await expect(page.getByRole('button', { name: '展开侧栏' })).toHaveAttribute('aria-expanded', 'false')
+  const compactHomeLink = page.getByRole('link', { name: '返回平台首页', exact: true })
+  await expect(compactHomeLink).toBeVisible()
+  await compactHomeLink.click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('token'))).toBe('p15-workbench-token')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/app')
+  const mobileToggle = page.getByRole('button', { name: '打开导航菜单' })
+  await mobileToggle.focus()
+  await page.keyboard.press('Enter')
+  const drawer = page.getByRole('dialog', { name: '导航菜单' })
+  const mobileHomeLink = drawer.getByRole('link', { name: '返回平台首页', exact: true })
+  await expect(mobileHomeLink).toBeVisible()
+  await expect(page.locator('.mobile-drawer-home a, .mobile-drawer-home button')).toHaveCount(0)
+  await mobileHomeLink.click()
+  await expect(drawer).toHaveCount(0)
+  await expect(page).toHaveURL(/\/$/)
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('token'))).toBe('p15-workbench-token')
+  await expect.poll(() => page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])).toEqual([390, 390])
+
+  await page.goto('/app')
+  await page.getByRole('button', { name: '打开导航菜单' }).click()
+  await page.getByRole('dialog', { name: '导航菜单' }).getByRole('button', { name: '退出登录' }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect.poll(() => page.evaluate(() => ({ token: localStorage.getItem('token'), user: localStorage.getItem('user') }))).toEqual({ token: null, user: null })
+  expect(consoleErrors).toEqual([])
+  expect(failedRequests).toEqual([])
+  expect(unexpectedApiResponses).toEqual([])
+})
+
 test('移动端导航提供名称、键盘抽屉操作、路由跳转和退出入口', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   const consoleErrors = []
