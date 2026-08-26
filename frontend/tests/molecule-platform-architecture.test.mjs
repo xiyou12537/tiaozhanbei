@@ -6,7 +6,7 @@ import forcedSwapFixture from './fixtures/forced-swap-molecule-workflow.mjs'
 import zeroSwapFixture from './fixtures/zero-swap-molecule-workflow.mjs'
 
 const source = async path => readFile(new URL(path, import.meta.url), 'utf8')
-const [routerSource, layoutSource, homeSource, entrySource, resultSource, authPageSource, authCardSource] = await Promise.all([
+const [routerSource, layoutSource, homeSource, entrySource, resultSource, authPageSource, authCardSource, designSystemSource] = await Promise.all([
   source('../src/router.js'),
   source('../src/views/Layout.vue'),
   source('../src/views/HomePage.vue'),
@@ -14,6 +14,7 @@ const [routerSource, layoutSource, homeSource, entrySource, resultSource, authPa
   source('../src/views/MoleculeWorkflowResultPage.vue'),
   source('../src/views/AuthPage.vue'),
   source('../src/components/AuthFormCard.vue'),
+  source('../src/styles/design-system.css'),
 ])
 
 const capabilities = {
@@ -113,6 +114,26 @@ test('登录注册页与分子计算平台使用统一视觉体系', () => {
   for (const legacyColor of ['#377dff', '#18baa9', '#041321', '#051626']) {
     assert.doesNotMatch(authVisualSource, new RegExp(legacyColor, 'i'))
   }
+})
+
+test('全站视觉基础使用克制配色、独立状态色与中文排版令牌', () => {
+  for (const token of [
+    '--lz-bg: #f7f7f4',
+    '--lz-panel: #ffffff',
+    '--lz-text: #1f2926',
+    '--lz-muted: #66736d',
+    '--lz-accent: #245c4a',
+    '--lz-accent-hover: #2f6b58',
+    '--lz-accent-soft: #eef5f1',
+    '--lz-running: #3d6f9e',
+    '--lz-completed: #245c4a',
+    '--lz-partial: #9a6818',
+    '--lz-failed: #9b4a3c',
+    '--lz-unknown: #75807b',
+    '--lz-title-leading:',
+    '--lz-body-leading:',
+  ]) assert.match(designSystemSource, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+  assert.doesNotMatch(designSystemSource, /#b5f04c/i)
 })
 
 test('新建页为四步且结果页明确区分两类拓扑与路由消费', () => {

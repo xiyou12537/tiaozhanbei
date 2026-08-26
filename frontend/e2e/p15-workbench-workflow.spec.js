@@ -27,6 +27,51 @@ async function mockWorkflowApi(page, fixture = passedFixture) {
   })
 }
 
+async function readTypography(page, selector) {
+  return page.locator(selector).evaluate(element => {
+    const style = window.getComputedStyle(element)
+    const fontSize = Number.parseFloat(style.fontSize)
+    const lineHeight = Number.parseFloat(style.lineHeight)
+    return {
+      lineHeight: style.lineHeight,
+      fontSize,
+      ratio: lineHeight / fontSize,
+    }
+  })
+}
+
+function expectReadableChineseType({ lineHeight, ratio }) {
+  expect(lineHeight).not.toBe('normal')
+  expect(ratio).toBeGreaterThanOrEqual(1.25)
+  expect(ratio).toBeLessThanOrEqual(1.4)
+}
+
+function expectReadableChineseBody({ lineHeight, ratio }) {
+  expect(lineHeight).not.toBe('normal')
+  expect(ratio).toBeGreaterThanOrEqual(1.65)
+  expect(ratio).toBeLessThanOrEqual(1.85)
+}
+
+test('中文行高 Token 在首页和工作台具有有效计算样式并保留响应式标题层级', async ({ page }) => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport)
+
+    await page.goto('/')
+    expectReadableChineseType(await readTypography(page, '.hero-title'))
+    expectReadableChineseBody(await readTypography(page, '.hero-copy > p:not(.hero-disclaimer)'))
+    await expect.poll(() => page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])).toEqual([viewport.width, viewport.width])
+
+    await authenticate(page)
+    await mockWorkflowApi(page)
+    await page.goto('/app')
+    const workbenchTitle = await readTypography(page, '.workbench-hero h2')
+    expectReadableChineseType(workbenchTitle)
+    expectReadableChineseBody(await readTypography(page, '.workbench-hero p'))
+    expect(workbenchTitle.fontSize).toBeGreaterThanOrEqual(viewport.width === 1440 ? 70 : 36)
+    await expect.poll(() => page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])).toEqual([viewport.width, viewport.width])
+  }
+})
+
 test('从工作台通过主要操作进入推荐 Workflow 创建页', async ({ page }) => {
   await authenticate(page)
   await mockWorkflowApi(page)
