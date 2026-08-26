@@ -2,7 +2,7 @@
   <div class="workflow-history-page">
     <header class="history-hero">
       <div>
-        <span class="lz-kicker">TASK MANAGEMENT</span>
+        <span class="lz-kicker">任务管理</span>
         <h2>计算任务</h2>
         <p>查看正在推进、需要复核和未完成的分子计算；执行状态与质量状态始终分别保留。</p>
       </div>

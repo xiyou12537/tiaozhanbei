@@ -3,15 +3,15 @@
     <section class="auth-hero">
       <div class="auth-hero-inner">
         <div class="auth-copy">
-          <span class="eyebrow">ACCOUNT / WORKFLOW ACCESS</span>
+          <span class="eyebrow">账号与工作区</span>
           <h1>进入分子量子<br><em>计算工作区</em></h1>
           <p>使用平台账号访问分子计算、任务记录与可审计的分布式模拟结果。</p>
 
           <div class="auth-schematic" aria-hidden="true">
-            <header><span>WORKFLOW CONTRACT V2</span><i></i></header>
+            <header><span>Workflow 契约 V2</span><i></i></header>
             <div class="molecule-pair"><b>H</b><span></span><b>H</b></div>
-            <div class="virtual-chip chip-one"><small>VIRTUAL QPU 01</small><strong>q0 — q2 — q1</strong></div>
-            <div class="virtual-chip chip-two"><small>VIRTUAL QPU 02</small><strong>q0 — q1</strong></div>
+            <div class="virtual-chip chip-one"><small>虚拟 QPU 01</small><strong>q0 — q2 — q1</strong></div>
+            <div class="virtual-chip chip-two"><small>虚拟 QPU 02</small><strong>q0 — q1</strong></div>
           </div>
 
           <div class="auth-copy-actions">
@@ -331,8 +331,9 @@ function handleSuccess(payload) {
     flex-direction: column;
   }
 
-  .auth-copy-actions a {
+.auth-copy-actions a {
     justify-content: center;
   }
 }
+.auth-page{background:var(--lz-bg);color:var(--lz-text)}.auth-hero-inner{border-color:var(--lz-line);border-radius:var(--lz-radius);background:var(--lz-bg-soft);overflow:hidden}.auth-copy{border-color:var(--lz-line)}.eyebrow,.auth-schematic header span{color:var(--lz-accent-deep);letter-spacing:.07em}.auth-copy h1{line-height:var(--lz-title-leading);letter-spacing:-.035em}.auth-copy h1 em{color:var(--lz-accent)}.auth-copy>p{color:var(--lz-muted);line-height:var(--lz-body-leading)}.auth-schematic{border-color:var(--lz-line);background-color:var(--lz-bg);background-image:linear-gradient(var(--lz-line-soft) 1px,transparent 1px),linear-gradient(90deg,var(--lz-line-soft) 1px,transparent 1px)}.auth-schematic header{border-color:var(--lz-line);background:rgba(247,247,244,.94)}.auth-schematic header i{background:var(--lz-accent);box-shadow:0 0 0 4px rgba(36,92,74,.12)}.molecule-pair b,.ghost-btn{background:var(--lz-accent)}.molecule-pair b{color:#e7f3ec}.chip-two{border-color:var(--lz-accent)}.ghost-btn,.text-link{border-radius:var(--lz-radius-small)}.text-link{border-color:var(--lz-line-strong);color:var(--lz-muted)}.ghost-btn:hover{background:var(--lz-accent-hover)}.text-link:hover{border-color:var(--lz-accent);color:var(--lz-accent-deep)}
 </style>

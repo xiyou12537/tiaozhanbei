@@ -120,4 +120,6 @@ async function submit() {
 .chip-editor>header :deep(.el-input-number){width:135px}
 @media(max-width:780px){.form-grid.two{grid-template-columns:1fr}}
 .study-create-page,.page-head,.builder,.step-panel,.atom-editor{min-width:0;max-width:100%;box-sizing:border-box}.study-create-page{width:100%}.page-head>div:first-child{min-width:0}.atom-editor{overflow:auto}.simulation-note{margin-top:12px!important;color:#42662f!important;font:700 .7rem ui-monospace,monospace!important}.contract-tags :deep(.el-tag){border-color:#b7cbaa;background:#edf4e8;color:#385a2c;font-weight:700}.contract-tags :deep(.el-tag--warning){border-color:#e4c476;background:#fff5dc;color:#895d10}
+/* P1.6A visual refinement */
+.study-create-page{gap:22px}.page-head,.builder,.panel{border-radius:var(--lz-radius);box-shadow:var(--lz-shadow)}.page-head{background:var(--lz-bg-soft)}.page-head h2{line-height:var(--lz-title-leading);letter-spacing:-.045em}.page-head p,.panel header p{line-height:var(--lz-body-leading)}.step-rail .active{background:var(--lz-accent);color:#e5f2ea}.panel{padding:var(--lz-space-panel)}.advanced-settings{border-radius:var(--lz-radius-small);background:var(--lz-bg-soft)}.architecture,.topology-editors>section,.chip-editor{border-color:var(--lz-line);background:var(--lz-bg-soft)}
 </style>

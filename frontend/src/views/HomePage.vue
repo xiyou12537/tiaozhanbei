@@ -2,7 +2,7 @@
   <div class="platform-home">
     <section class="home-hero">
       <div class="hero-copy">
-        <span class="hero-kicker">MOLECULAR WORKFLOW / 04</span>
+        <span class="hero-kicker">分子计算平台</span>
         <h1 class="hero-title"><span class="hero-title-line">分子量子</span><em class="hero-title-line">分布式计算平台</em></h1>
         <p>从分子结构，到可验证的协同计算。</p>
         <div class="hero-actions">
@@ -15,13 +15,13 @@
         <i v-for="atom in clusterAtoms" :key="atom.id" :class="['hero-atom', atom.element.toLowerCase()]" :style="{ left: `${atom.x}%`, top: `${atom.y}%` }"></i>
         <span v-for="edge in clusterEdges" :key="edge.id" class="hero-edge" :style="edge.style"></span>
       </div>
-      <div class="hero-meta" aria-hidden="true"><span>(LiH)₄ / MOLECULAR ORIGIN</span><span>SCROLL-BOUND COMPUTATION</span></div>
+      <div class="hero-meta" aria-hidden="true"><span>(LiH)₄ / 分子起点</span><span>计算过程概览</span></div>
     </section>
 
     <MoleculeNarrativeCanvas />
 
     <section class="home-bridge" aria-label="继续使用平台">
-      <div><span class="bridge-kicker">CONTINUE THE WORKFLOW</span><h2>把下一组原子<br /><em>交给平台。</em></h2></div>
+      <div><span class="bridge-kicker">继续计算</span><h2>把下一组原子<br /><em>交给平台。</em></h2></div>
       <div class="bridge-actions"><router-link class="bridge-primary" to="/app/molecules">新建计算 <span aria-hidden="true">↗</span></router-link><router-link class="bridge-secondary" to="/app/molecule-workflows">计算任务 <span aria-hidden="true">↗</span></router-link></div>
     </section>
   </div>
@@ -50,4 +50,5 @@ const clusterEdges = [
 @media (max-width: 900px) { .hero-cluster { right: 4vw; opacity: .62; }.hero-title { font-size: clamp(3.7rem, 8.2vw, 5.7rem); } }
 @media (max-width: 620px) { .home-hero { min-height: calc(100svh - 132px); padding: 8vh 24px 9vh; align-items: flex-start; }.hero-copy { max-width: 100%; }.hero-title { margin: 22px 0 22px; font-size: clamp(2.55rem, 10.8vw, 3.6rem); line-height: .94; }.hero-actions { margin-top: 28px; }.hero-disclaimer { margin-top: 32px !important; }.hero-cluster { width: 164px; right: 16px; top: auto; bottom: 16px; opacity: .78; }.hero-meta { display: none; }.home-bridge { align-items: flex-start; flex-direction: column; padding: 13vh 24px 16vh; }.bridge-actions { justify-content: flex-start; } }
 @media (prefers-reduced-motion: reduce) { .hero-actions a { transition: none; } }
+.platform-home{background:var(--lz-bg);color:var(--lz-text)}.hero-kicker,.bridge-kicker{color:var(--lz-accent-deep);letter-spacing:.08em}.hero-title,.home-bridge h2{line-height:var(--lz-title-leading);letter-spacing:-.035em}.hero-title em,.home-bridge h2 em{color:var(--lz-accent)}.hero-copy>p{color:var(--lz-muted);line-height:var(--lz-body-leading)}.hero-actions a,.bridge-actions a{border-color:var(--lz-line-strong);border-radius:var(--lz-radius-small);color:var(--lz-text)}.hero-actions .primary-action,.bridge-primary{border-color:var(--lz-accent)!important;background:var(--lz-accent)}.hero-actions .primary-action:hover{background:var(--lz-accent-hover)}.hero-actions .secondary-action,.bridge-secondary{color:var(--lz-muted)!important}.hero-edge{background:var(--lz-accent)}.hero-meta,.hero-disclaimer{color:var(--lz-muted-weak)!important}.home-bridge{border-color:var(--lz-line);background:var(--lz-bg)}
 </style>
